@@ -1,0 +1,79 @@
+/*
+ * Semantic theme tokens — centralized (docs/ARCHITECTURE.md §3.2).
+ *
+ * One `--c-*` variable block per theme; components consume them ONLY through
+ * the Tailwind tokens mapped in tailwind.config.js (bg-surface, text-muted,
+ * border-border, text-content-*). Themes are switched by setting
+ * `data-theme` on <html> (see shared/theme/themes.ts applyTheme()).
+ *
+ * Default (`:root`) palette: tokyo-night (the documented default theme).
+ *
+ * V2 readability rule: normal table/data text NEVER uses pure #ffffff —
+ * the --c-text-* role tokens below are softened against each theme's
+ * background and are the only colors future table components may use.
+ */
+:root {
+  --c-background: #1a1b26;
+  --c-surface: #1f2335;
+  --c-surface-hover: #272b3f;
+  --c-overlay: rgba(26, 27, 38, 0.7);
+  --c-text: #c0caf5;
+  --c-muted: #7e84a2;
+  --c-subtle: #5c6179;
+  --c-border: #303241;
+  --c-border-hover: #3b3e4f;
+  --c-accent: #7aa2f7;
+  --c-accent-hover: #8eb0f8;
+  --c-accent-text: #16161e;
+  --c-accent-muted: #6787cd;
+  --c-success: #22c55e;
+  --c-info: #7dcfff;
+  --c-warning: #e0af68;
+  --c-danger: #f7768e;
+
+  /* Text roles: body / table primary / table secondary / table header / muted metadata. */
+  --c-text-body: #c0caf5;
+  --c-text-primary: #c0caf5;
+  --c-text-secondary: #a7b0d6;
+  --c-text-header: #979ec1;
+  --c-text-muted: #7e84a2;
+}
+
+/* github-light — first light theme (demonstrates the light-scheme block shape;
+   remaining themes are added here when theme switching is implemented). */
+html[data-theme='github-light'] {
+  --c-background: #ffffff;
+  --c-surface: #f6f8fa;
+  --c-surface-hover: #ebedf0;
+  --c-overlay: rgba(31, 35, 40, 0.4);
+  --c-text: #1f2328;
+  --c-muted: #797b7e;
+  --c-subtle: #a5a7a9;
+  --c-border: #e0e0e1;
+  --c-border-hover: #c5c6c7;
+  --c-accent: #1a7f37;
+  --c-accent-hover: #166c2f;
+  --c-accent-text: #ffffff;
+  --c-accent-muted: #48995f;
+  --c-success: #15803d;
+  --c-info: #0969da;
+  --c-warning: #9a6700;
+  --c-danger: #cf222e;
+
+  --c-text-body: #1f2328;
+  --c-text-primary: #1f2328;
+  --c-text-secondary: #414448;
+  --c-text-header: #575a5e;
+  --c-text-muted: #797b7e;
+}
+
+/* Documented font-size scale: html font size = 16px × --app-font-scale
+   (see shared/theme/fontSize.ts). */
+html {
+  font-size: calc(16px * var(--app-font-scale, 1));
+}
+
+body {
+  background-color: var(--c-background);
+  color: var(--c-text-body);
+}
