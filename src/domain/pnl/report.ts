@@ -1,4 +1,11 @@
-import { formatMoistureLabelCount, type MoistureLabelValue } from '@/domain/paddy/moisture';
+import {
+  formatMoistureLabelCount,
+  MOISTURE_BASIS_LB,
+  MOISTURE_LABEL_OPTIONS,
+  type MoistureLabel,
+  type MoistureLabelValue,
+  type MoistureRates,
+} from '@/domain/paddy/moisture';
 import type { BagRow } from '@/domain/purchase/totals';
 
 /**
@@ -79,4 +86,54 @@ export function summarizePnl(rows: readonly PnlRow[]): PnlSummary {
     total_net_pound,
     total_amount,
   };
+}
+
+/**
+ * §8.1 — moisture deduction breakdown (lb).
+ *
+ * The P&L moisture deduction table reports DEDUCTION pounds, never net pounds
+ * (and never gross pounds). For each saved purchase the total deduction pound
+ * is computed from the stored bag moisture data using the purchase's
+ * snapshotted deduction rates:
+ *
+ *   deductionPound(label) = Σ over rows (weight_lb / 50 × snapshottedRate(label))
+ *   deductionTotal        = Σ deductionPound(label)
+ *   netPound              = grossPound − deductionTotal   (a separate value)
+ *
+ * No intermediate rounding. `None`/unknown rows contribute 0. Only labels with
+ * deduction data appear in the result (ascending 17, 18, 19, 20), matching the
+ * documented table shape (data rows + Total row).
+ */
+export interface DeductionByLabelRow {
+  label: MoistureLabel;
+  /** Deduction pound for this moisture label (lb). */
+  deduction_lb: number;
+}
+
+/** §8.1 — per-purchase deduction breakdown: label rows + the Total row value. */
+export interface MoistureDeductionBreakdown {
+  /** Only labels with deduction data appear, ascending (17, 18, 19, 20). */
+  labels: DeductionByLabelRow[];
+  /** Total row — the sum of every displayed label deduction pound. */
+  total_deduction_lb: number;
+}
+
+export function computeMoistureDeductionBreakdown(
+  rows: readonly BagRow[],
+  rates: Readonly<MoistureRates>,
+): MoistureDeductionBreakdown {
+  const byLabel = new Map<MoistureLabel, number>();
+  for (const row of rows) {
+    if (row.moisture_label == null) continue; // None/unknown → 0
+    const rate = rates[row.moisture_label];
+    byLabel.set(
+      row.moisture_label,
+      (byLabel.get(row.moisture_label) ?? 0) + (row.weight_lb / MOISTURE_BASIS_LB) * rate,
+    );
+  }
+  const labels: DeductionByLabelRow[] = MOISTURE_LABEL_OPTIONS.filter((label) =>
+    byLabel.has(label),
+  ).map((label) => ({ label, deduction_lb: byLabel.get(label)! }));
+  const total_deduction_lb = labels.reduce((sum, row) => sum + row.deduction_lb, 0);
+  return { labels, total_deduction_lb };
 }

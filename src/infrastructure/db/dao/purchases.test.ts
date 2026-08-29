@@ -46,6 +46,8 @@ describe('purchase DAO (persistence + snapshot isolation)', () => {
       moisture_rates: RATES,
       moisture_loss: 2,
       net_pound: 98,
+      finalized: false,
+      pdf_path: null,
       ...overrides,
     }
   }

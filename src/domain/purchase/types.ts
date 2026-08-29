@@ -47,4 +47,8 @@ export interface PurchaseSnapshot {
    * P&L must use these stored rates, never the current Settings values.
    */
   moisture_rates: MoistureRates;
+  /** §7 — `true` once the purchase has been finalized (PDF stamped). */
+  finalized: boolean;
+  /** §7 — on-disk voucher PDF path, null until finalized. */
+  pdf_path: string | null;
 }

@@ -50,6 +50,9 @@ function mapSnapshot(row: Row): PurchaseSnapshot {
     moisture_label: (nullableNum(row.moisture_label) ?? null) as PurchaseSnapshot['moisture_label'],
     // §4.4 V2 — the snapshotted deduction rates stored with the purchase.
     moisture_rates: JSON.parse(String(row.moisture_rates)) as PurchaseSnapshot['moisture_rates'],
+    // §7 — finalize stamp (read-only after finalize).
+    finalized: Number(row.finalized) === 1,
+    pdf_path: row.pdf_path == null ? null : String(row.pdf_path),
   }
 }
 
@@ -207,4 +210,44 @@ export function deleteBagRow(db: Database, purchaseId: number, seq: number): boo
 export function deletePurchase(db: Database, id: number): boolean {
   run(db, 'DELETE FROM purchases WHERE id = ?', [id])
   return db.getRowsModified() > 0
+}
+
+/** Read one bag row's current weight + label (edit use case), or null. */
+export function getBagRow(db: Database, purchaseId: number, seq: number): BagRow | null {
+  const row = queryOne(
+    db,
+    'SELECT weight_lb, moisture_label FROM bags WHERE purchase_id = ? AND seq = ?',
+    [purchaseId, seq],
+  )
+  return row ? mapBag(row) : null
+}
+
+/** Update one bag row's weight + label in place; `seq` keeps its position. */
+export function updateBagRow(
+  db: Database,
+  purchaseId: number,
+  seq: number,
+  bag: BagRow,
+): boolean {
+  run(
+    db,
+    'UPDATE bags SET weight_lb = ?, moisture_label = ? WHERE purchase_id = ? AND seq = ?',
+    [bag.weight_lb, bag.moisture_label, purchaseId, seq],
+  )
+  const updated = db.getRowsModified() > 0
+  if (updated) scheduleSave()
+  return updated
+}
+
+/** Highest bag `seq` for a purchase — the undo target — or null when no bags. */
+export function lastBagSeq(db: Database, purchaseId: number): number | null {
+  const row = queryOne(db, 'SELECT MAX(seq) AS seq FROM bags WHERE purchase_id = ?', [purchaseId])
+  return row && row.seq != null ? Number(row.seq) : null
+}
+
+/** All purchase numbers (creation order) — feeds §6.1 monthly sequence generation. */
+export function listPurchaseNumbers(db: Database): string[] {
+  return queryAll(db, 'SELECT purchase_no FROM purchases ORDER BY date DESC, id DESC').map((r) =>
+    String(r.purchase_no),
+  )
 }
