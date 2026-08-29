@@ -420,6 +420,89 @@ pairs joined by `, `, **without** any "lb" unit and ignoring `null`/None rows;
 returns `''` when no labeled rows exist. (Confirmed by `moisture.test.ts`
 "formatMoistureLabelCount".)
 
+### 8.1 Moisture Deduction Breakdown (lb) — a deduction-pound table
+
+**It represents deduction pounds, not net pounds.** For each saved purchase
+(report row), the P&L moisture deduction breakdown shows the **total moisture
+deduction pound** attributed to each moisture label, calculated from the stored
+purchase/bag moisture data using the applicable **snapshotted deduction rates**
+(§4.4). It never replaces, and must never be confused with, gross pound or net
+pound.
+
+Conceptually (consistent with §4.3):
+
+```
+netPound      = grossPound − deductionPound
+deductionPound = grossPound − netPound   // the two values are separate
+```
+
+**Table shape** (one table per purchase, presented with the P&L purchase rows):
+
+| Moisture Label | Deduction Pound |
+| -------------- | --------------: |
+| 17             |           … lb |
+| 18             |           … lb |
+| 19             |           … lb |
+| 20             |           … lb |
+| **Total**      |      **… lb** |
+
+- A **data row appears only for labels that have deduction data** for that
+  purchase (i.e. at least one purchase row carries that moisture label, so the
+  label contributes deduction pounds). Labels with no moisture data may be
+  omitted. The **Total** row always appears.
+- The **Total** row equals the sum of all displayed moisture-label deduction
+  pounds. The Total is the purchase's deduction pound — it is **NOT** the net
+  pound.
+- Example: label 17 = 10 lb, label 18 = 20 lb, label 19 = 5 lb
+  ⇒ **Deduction Total = 35 lb**. This `35 lb` is the deduction, not the net
+  pound.
+
+**Aggregation rule.** Deduction pounds are aggregated from the actual saved
+purchase/bag moisture data — never recalculated from net pound:
+
+```
+deductionPound(label) = Σ over purchase rows ( weight_lb / 50 × snapshottedDeductionRate(label) )
+deductionTotal        = Σ over displayed labels deductionPound(label)
+netPound              = grossPound − deductionTotal        // computed independently
+```
+
+- Rows with no moisture (`null`, "None") contribute **0** to every label. Their
+  weight still counts toward gross pound, but they create no label row and add
+  no deduction.
+- Pattern 1: the purchase's snapshotted label and rate apply to all rows, so
+  the table shows that single label (deduction = gross ÷ 50 × snapshotted rate).
+- Pattern 2: each bag row's own `moisture_label` (per-row) places that row's
+  deduction under the corresponding label, using that label's snapshotted rate.
+- **No intermediate rounding:** calculations carry full precision; rounding
+  happens only at presentation/export time (see §1).
+- Consistency with §4.3: for any saved purchase, `deductionTotal` equals that
+  purchase's stored `moisture_loss` — both are the sum of `W/50 × rate` over
+  the same rows.
+
+**Snapshot rule (unchanged from §4.4).** The deduction rates used are the rates
+**snapshotted at the purchase's save/finalize time**. Changing Settings later
+does not change historical P&L deduction values; new purchases use the newly
+configured rates.
+
+**Purchase/farmer identification data.** Each purchase-level deduction table
+carries the existing stored identification fields of that purchase (no new
+customer entity, no invented fields; the app's terminology is **Farmer**):
+
+- **Purchase / Voucher number** — `purchase_no` (`PSO-YYYYMM-NNNN`, §6.1)
+- **Farmer name** — `farmer_name`
+- **Purchase date** — `date` (`YYYY-MM-DD`)
+- **Paddy (Rice) type** — `rice_type_name`
+
+**Relationship to the existing "Moisture Breakdown" count column.** The
+existing P&L row's **"Moisture Breakdown"** value (§8 above) is a **bag-count**
+string produced by `formatMoistureLabelCount` — it counts how many rows carry
+each label (`17:2, 18:1`) and carries **no "lb" units**. The **Moisture
+Deduction Breakdown (lb)** table defined in §8.1 is a **separate, additional**
+value: it reports **deduction pounds** per label. These two must not be
+conflated; this naming overlap is resolved explicitly here rather than by
+silently changing either behavior — the count column is unchanged and remains
+count-only, while the deduction table is denominated in pounds.
+
 ---
 
 ## 9. Other confirmed domain calculations
