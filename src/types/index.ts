@@ -9,6 +9,7 @@ export * from './entities'
 export * from './storage'
 export * from './print'
 export * from './platform'
+export * from './security'
 
 // Ports are re-exported for convenience; infrastructure implements them,
 // services/features consume them — always as types.
