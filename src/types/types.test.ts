@@ -52,6 +52,7 @@ describe('src/types contracts (Step 3 type surface)', () => {
       moisture_loss: 0,
       net_pound: 300,
       moisture_label: null,
+      moisture_rates: { 17: 1, 18: 2, 19: 3, 20: 4 },
     }
     expect(snapshot.purchase_no).toMatch(/^PSO-\d{6}-\d{4}$/)
   })

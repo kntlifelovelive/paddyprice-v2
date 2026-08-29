@@ -29,6 +29,7 @@ function purchase(overrides: Partial<PurchaseSnapshot>): PurchaseSnapshot {
     moisture_loss: 0,
     net_pound: 300,
     moisture_label: null,
+    moisture_rates: { 17: 1, 18: 2, 19: 3, 20: 4 },
     ...overrides,
   };
 }

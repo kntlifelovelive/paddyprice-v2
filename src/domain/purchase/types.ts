@@ -1,4 +1,4 @@
-import type { MoistureLabelValue } from '@/domain/paddy/moisture';
+import type { MoistureLabelValue, MoistureRates } from '@/domain/paddy/moisture';
 
 /**
  * A saved purchase's immutable snapshot — docs/DOMAIN_RULES.md §2.4/§2.5.
@@ -41,4 +41,10 @@ export interface PurchaseSnapshot {
   net_pound: number;
   /** §4.4 — the purchase-level (Pattern 1) moisture label applied at save. */
   moisture_label: MoistureLabelValue;
+  /**
+   * §4.4 (V2) — the moisture deduction rates snapshotted from Settings when
+   * this purchase was saved/finalized. Historical calculations, History and
+   * P&L must use these stored rates, never the current Settings values.
+   */
+  moisture_rates: MoistureRates;
 }
