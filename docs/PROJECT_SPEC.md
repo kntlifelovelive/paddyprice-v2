@@ -346,10 +346,16 @@ single-pane menu→detail on narrow screens). Groups and capabilities:
 
 ## 6. Security requirements
 
+Step 6 implements the security foundation described in this section and nothing
+more — every mechanism below is already-confirmed reference behavior unless
+explicitly marked as a V2 requirement or `Unknown / requires verification`. No
+new authentication methods, protocols, or encryption schemes may be introduced.
+
 ### 6.1 Gate order
 
 **Device Authorization → App Lock → Paddy app.** While a gate is active, no
-routes, layout, or data render (only the gate UI itself).
+routes, layout, or data render (only the gate UI itself). **Step 6 must preserve
+this exact order.**
 
 - On desktop/web the device gate reports `unsupported` and is **skipped**; the
   app works normally with Pattern/PIN only.
@@ -407,6 +413,81 @@ routes, layout, or data render (only the gate UI itself).
   `fingerprint|timestamp|status|label` (active/revoked/replaced); transfer
   revokes the old device then activates the new one. Installer secrets stay in
   the installer folder and are never committed.
+
+Implementation details **not** confirmed by the reference docs (do not guess;
+mark and verify against the reference installer if ever needed): the exact
+`keypass.txt` contents/format, the exact certificate byte layout/encoding, and
+the installer script internals. The documented flow above (challenge → sign →
+verify → persist) is the authoritative behavior.
+
+### 6.5 Installation / activation password file (`keypass.txt`)
+
+- `keypass.txt` is a **PC-side installer secret**, not an application login and
+  not part of the app runtime. In the documented Linux installer flow (§6.4) it
+  protects the EC P-256 master signing key (**AES-256**) used to sign device
+  activation certificates; the installer decrypts/uses it only on the PC during
+  Install/Activate, Transfer, and Check operations.
+- It is never displayed in the app, never shipped inside the APK, and stays in
+  the installer folder where it is **never committed** to git (confirmed
+  reference behavior).
+- The exact file format/creation process is **Unknown / requires verification**
+  (installer-side only; no V2 app code may depend on it).
+- V2 adds no new password format, encryption format, file location, or
+  activation algorithm — the §6.4 flow is the only confirmed activation path.
+
+### 6.6 Security persistence (confirmed data only)
+
+- **App Lock** stores ONLY salted PBKDF2 verifiers and non-secret configuration
+  flags in the existing SQLite `settings` table under `security.*` keys:
+  `security.enabled`, `security.pattern`, `security.pin`,
+  `security.biometric.fingerprint` (plus legacy combined
+  `security.biometric`), `security.timeout`. **Raw PIN/pattern/secrets are never
+  stored.** No schema changes were made by the reference and none may be made
+  by V2 security code.
+- **Device Authorization** persists `device.fp` and `device.cert` settings
+  (§6.4); a mismatch between stored DB state and the Keystore key pair means
+  unauthorized.
+- Whether the failed-attempt/throttle counter survives an app restart (in-memory
+  vs persisted) is **Unknown / requires verification**; do not invent either
+  behavior without checking the reference.
+- Step 6 may implement this through the existing infrastructure ports
+  (`src/types`), but this section does not change any code.
+
+### 6.7 Security UI language (V2 requirement — presentation only)
+
+- **Normal application UI** continues to use the existing bilingual Myanmar/
+  English language system unchanged.
+- **Security Lock / security-critical Android notices** — the lock screen and
+  security-related Android installation / activation / lock notices — must be
+  displayed in **English**, even when the application's normal UI language is
+  Myanmar. They must **not** be routed through the normal application-language
+  switch.
+  - Note: the reference lock screen currently translates its messages through
+    i18n; this is a deliberate, explicit V2 presentation change for
+    security-critical text. It changes presentation only — no security logic,
+    verification, or storage behavior may change because of it.
+- **Lock-screen title (exact):** where the app displays the security lock
+  screen/dialog, the primary title must be exactly:
+
+  **`Security Lock`**
+
+  It must not be replaced with a Myanmar translation and no alternative title
+  may be invented. (This exact title is not present in the reference project;
+  it is a new V2 UI requirement.)
+
+### 6.8 Step 6 scope boundary (security foundation only)
+
+Step 6 implements ONLY the security foundation required by this section. It
+must NOT add:
+
+- new authentication methods (no password login, no OTP, no SSO);
+- cloud authentication, accounts, or email/password login;
+- server-side authentication or remote user management;
+- new encryption schemes or new security products/features;
+- biometric methods other than the documented fingerprint behavior (§6.3).
+
+Anything beyond the behaviors documented in §6.1–§6.7 must be treated as
+`Unknown / requires verification` and confirmed before implementation.
 
 ---
 
