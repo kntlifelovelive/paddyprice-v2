@@ -18,6 +18,8 @@ import type { BagRow } from '@/domain/purchase/totals';
 
 /** §8 — the stored snapshot fields a P&L row is built from. */
 export interface PnlSnapshotRow {
+  /** §6.1 — the purchase's `PSO-YYYYMM-NNNN` number, used as the row key. */
+  purchase_no: string;
   /** Purchase date (`YYYY-MM-DD`). */
   date: string;
   farmer_name: string;

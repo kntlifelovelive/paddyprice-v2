@@ -44,3 +44,16 @@ export function normalizeFontSize(value: unknown): FontSizeId {
 export function applyFontSize(id: FontSizeId): void {
   document.documentElement.style.setProperty('--app-font-scale', String(FONT_SIZE_SCALE[id]))
 }
+
+/**
+ * Map a font-size id to a Tailwind class for an element that should NOT
+ * inherit the global `--app-font-scale` (e.g. a fixed-size meta label).
+ * Returns the documented scale as a Tailwind text-size class.
+ */
+export function fontSizeClass(id: FontSizeId): string {
+  const scale = FONT_SIZE_SCALE[id]
+  if (scale <= 0.9) return 'text-xs'
+  if (scale <= 1.0) return 'text-sm'
+  if (scale <= 1.1) return 'text-base'
+  return 'text-lg'
+}

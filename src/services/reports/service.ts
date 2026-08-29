@@ -120,6 +120,7 @@ export function getPnlReport(db: Database, filter: PurchaseFilter = {}): PnlRepo
   const rows: PnlRow[] = records.map(({ snapshot: s, bags }) =>
     buildPnlRow(
       {
+        purchase_no: s.purchase_no,
         date: s.date,
         farmer_name: s.farmer_name,
         rice_type_name: s.rice_type_name,

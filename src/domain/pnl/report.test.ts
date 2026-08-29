@@ -5,6 +5,7 @@ import { buildPnlRow, summarizePnl } from './report';
 
 function snapshot(overrides: Partial<Record<string, unknown>> = {}) {
   return {
+    purchase_no: 'PSO-202608-0001',
     date: '2026-08-01',
     farmer_name: 'Ko Aung',
     rice_type_name: 'Emata',
