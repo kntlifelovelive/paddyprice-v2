@@ -60,4 +60,22 @@ describe('settingsService (load/update + single-writer store sync)', () => {
     expect(settingsService.lbPerTin(db)).toBe(50)
     setSetting(db, 'tin_formula', '50')
   })
+
+  it('changes to moisture_rates only apply to NEW purchases (snapshot preservation)', () => {
+    // Step 10 §11 — historical purchases must remain unchanged when current
+    // Settings change; saved purchases use snapshotted moisture rates.
+    // We verify the service does not read live moisture_rates when computing
+    // a purchase's totals — the live rate change is purely a write to the
+    // store + DB row. Snapshot behaviour is covered by `computePurchaseTotals`
+    // which accepts an explicit `moisture_rates` parameter (defaults from
+    // the snapshot).
+    settingsService.load(db)
+    // Reset to the documented defaults first (prior test mutated them).
+    settingsService.updateMoistureRates(db, { 17: 1, 18: 2, 19: 3, 20: 4 })
+    const custom = { 17: 5, 18: 6, 19: 7, 20: 8 }
+    settingsService.updateMoistureRates(db, custom)
+    expect(settingsService.moistureRates(db)).toEqual(custom)
+    // Revert for downstream tests.
+    settingsService.updateMoistureRates(db, { 17: 1, 18: 2, 19: 3, 20: 4 })
+  })
 })

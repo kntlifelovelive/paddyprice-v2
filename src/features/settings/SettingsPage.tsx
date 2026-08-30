@@ -13,6 +13,11 @@
  * ARCHITECTURE §3.7). The page NEVER persists directly; it never reads
  * SQLite; it never recomputes domain rules. Resolution (invalid -> defaults)
  * lives in the domain layer and the service.
+ *
+ * Step 11 §1 — two-panel layout (left section list, right section content),
+ * SVG section icons, and circular selection indicators on choice buttons.
+ * Step 11 §5 — theme choice immediately applies the theme via
+ * `applyTheme`/`data-theme`; default language is English.
  */
 import { useEffect, useMemo, useState } from 'react'
 
@@ -25,9 +30,61 @@ import { applyFontSize, applyTheme, FONT_SIZE_LABELS, FONT_SIZE_SCALE, type Font
 import { normalizeTheme, THEMES, type ThemeId } from '@/shared/theme/themes'
 import { useT } from '@/shared/hooks'
 import type { Settings } from '@/types'
-import { Text } from '@/shared/ui'
+import { Text, cn, ShieldIcon } from '@/shared/ui'
+import { SecurityTab } from '@/features/security/SecurityTab'
 
-type Tab = 'company' | 'theme' | 'tin' | 'moisture'
+type Tab = 'company' | 'theme' | 'tin' | 'moisture' | 'security'
+
+/** Step 11 §1.1 — SVG section icons (no external icon package). */
+function SectionIcon({ name }: { name: Tab }): JSX.Element {
+  const common = 'h-5 w-5 shrink-0 text-content-secondary'
+  switch (name) {
+    case 'company':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className={common}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 21h18M5 21V7l7-3 7 3v14M9 9h2M9 13h2M9 17h2M13 9h2M13 13h2M13 17h2" />
+        </svg>
+      )
+    case 'theme':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className={common}>
+          <circle cx="12" cy="12" r="8" />
+          <path strokeLinecap="round" d="M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4" />
+        </svg>
+      )
+    case 'tin':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className={common}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 7h14v10a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V7z" />
+          <path strokeLinecap="round" d="M5 7l1-2h12l1 2M9 11h6" />
+        </svg>
+      )
+    case 'moisture':
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true" className={common}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3s6 7 6 12a6 6 0 1 1-12 0c0-5 6-12 6-12z" />
+          <path strokeLinecap="round" d="M9 14a3 3 0 0 0 3 3" />
+        </svg>
+      )
+    case 'security':
+      return <ShieldIcon size="h-5 w-5 shrink-0 text-content-secondary" aria-label="Security" />
+  }
+}
+
+/** Step 11 §1.3 — circular radio indicator (empty / filled). */
+function ChoiceIndicator({ selected }: { selected: boolean }): JSX.Element {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        'inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+        selected ? 'border-accent' : 'border-border',
+      )}
+    >
+      {selected ? <span className="h-2 w-2 rounded-full bg-accent" /> : null}
+    </span>
+  )
+}
 
 interface DraftState {
   company_name: string
@@ -51,7 +108,7 @@ function toDraft(s: Settings | null): DraftState {
     pdf_dir: s?.pdf_dir ?? 'PSO/pdf',
     tin_formula: s?.tin_formula ?? '50',
     theme: normalizeTheme(s?.theme),
-    language: s?.language ?? 'my',
+    language: s?.language ?? 'en',
     font_size: s?.font_size ?? 'normal',
     moisture_rates: s?.moisture_rates ?? { 17: 1, 18: 2, 19: 3, 20: 4 },
   }
@@ -121,6 +178,7 @@ export function SettingsPage(): JSX.Element {
     { id: 'theme', label: { my: 'အပြင်အဆင်', en: 'Appearance' } },
     { id: 'tin', label: { my: 'တင်းဖော်မြူလာ', en: 'Tin Formula' } },
     { id: 'moisture', label: { my: 'အစိုဓာတ်', en: 'Moisture' } },
+    { id: 'security', label: { my: 'လုံခြုံမှု', en: 'Security' } },
   ]
 
   return (
@@ -135,36 +193,56 @@ export function SettingsPage(): JSX.Element {
         </p>
       )}
 
-      <nav className="flex flex-wrap gap-2 border-b border-border">
-        {tabs.map((tt) => (
-          <button
-            key={tt.id}
-            type="button"
-            onClick={() => setTab(tt.id)}
-            className={
-              'rounded-t-lg px-3 py-1.5 text-sm font-medium transition-colors ' +
-              (tab === tt.id
-                ? 'border-b-2 border-accent text-content-primary'
-                : 'text-content-secondary hover:bg-surface-hover hover:text-content-primary')
-            }
-          >
-            {t(tt.label)}
-          </button>
-        ))}
-      </nav>
+      {/*
+        Step 11 §1.2 — two-panel layout. Desktop/tablet uses a left rail of
+        section cards (icon + label) and a right content area; on small
+        screens the rail stacks above the content so nothing breaks.
+      */}
+      <div className="grid gap-4 md:grid-cols-[14rem_1fr]">
+        <nav
+          aria-label={t({ my: 'ဆက်တင် အပိုင်းများ', en: 'Settings sections' })}
+          className="flex flex-row gap-2 overflow-x-auto md:flex-col md:gap-1 md:overflow-visible"
+        >
+          {tabs.map((tt) => {
+            const active = tab === tt.id
+            return (
+              <button
+                key={tt.id}
+                type="button"
+                onClick={() => setTab(tt.id)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                  active
+                    ? 'border-accent bg-accent-muted text-content-primary'
+                    : 'border-transparent text-content-secondary hover:bg-surface-hover hover:text-content-primary',
+                )}
+              >
+                <SectionIcon name={tt.id} />
+                <span className="whitespace-nowrap">{t(tt.label)}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-      {tab === 'company' && (
-        <CompanyTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
-      )}
-      {tab === 'theme' && (
-        <ThemeTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
-      )}
-      {tab === 'tin' && (
-        <TinTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
-      )}
-      {tab === 'moisture' && (
-        <MoistureTab draft={draft} commitMoisture={commitMoisture} t={t} />
-      )}
+        <div className="min-w-0">
+          {tab === 'company' && (
+            <CompanyTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
+          )}
+          {tab === 'theme' && (
+            <ThemeTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
+          )}
+          {tab === 'tin' && (
+            <TinTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
+          )}
+          {tab === 'moisture' && (
+            <MoistureTab draft={draft} commitMoisture={commitMoisture} t={t} />
+          )}
+          {tab === 'security' && (
+            <SecurityTab t={t} />
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -239,11 +317,14 @@ function ThemeTab({
           {THEMES.map((tt) => (
             <label
               key={tt.id}
-              className={
-                'flex cursor-pointer items-center gap-2 rounded border border-border p-2 text-sm ' +
-                (draft.theme === tt.id ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover')
-              }
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded border p-2 text-sm transition-colors',
+                draft.theme === tt.id
+                  ? 'border-accent bg-accent-muted text-content-primary'
+                  : 'border-border hover:bg-surface-hover',
+              )}
             >
+              <ChoiceIndicator selected={draft.theme === tt.id} />
               <input
                 type="radio"
                 name="theme"
@@ -253,6 +334,7 @@ function ThemeTab({
                   setDraft((d) => d && { ...d, theme: tt.id })
                   commit('theme', tt.id)
                 }}
+                className="sr-only"
               />
               <span>{tt.name}</span>
             </label>
@@ -268,11 +350,14 @@ function ThemeTab({
           {(['my', 'en'] as const).map((lng) => (
             <label
               key={lng}
-              className={
-                'flex cursor-pointer items-center gap-2 rounded border border-border px-3 py-1.5 text-sm ' +
-                (draft.language === lng ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover')
-              }
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors',
+                draft.language === lng
+                  ? 'border-accent bg-accent-muted text-content-primary'
+                  : 'border-border hover:bg-surface-hover',
+              )}
             >
+              <ChoiceIndicator selected={draft.language === lng} />
               <input
                 type="radio"
                 name="language"
@@ -282,6 +367,7 @@ function ThemeTab({
                   setDraft((d) => d && { ...d, language: lng })
                   commit('language', lng)
                 }}
+                className="sr-only"
               />
               <span>{lng === 'my' ? 'မြန်မာ' : 'English'}</span>
             </label>
@@ -297,11 +383,14 @@ function ThemeTab({
           {(Object.keys(FONT_SIZE_LABELS) as FontSizeId[]).map((id) => (
             <label
               key={id}
-              className={
-                'flex cursor-pointer items-center gap-2 rounded border border-border px-3 py-1.5 text-sm ' +
-                (draft.font_size === id ? 'bg-accent text-accent-text' : 'hover:bg-surface-hover')
-              }
+              className={cn(
+                'flex cursor-pointer items-center gap-2 rounded border px-3 py-1.5 text-sm transition-colors',
+                draft.font_size === id
+                  ? 'border-accent bg-accent-muted text-content-primary'
+                  : 'border-border hover:bg-surface-hover',
+              )}
             >
+              <ChoiceIndicator selected={draft.font_size === id} />
               <input
                 type="radio"
                 name="font-size"
@@ -311,6 +400,7 @@ function ThemeTab({
                   setDraft((d) => d && { ...d, font_size: id })
                   commit('font_size', id)
                 }}
+                className="sr-only"
               />
               <span>
                 {t(FONT_SIZE_LABELS[id])} ({Math.round(FONT_SIZE_SCALE[id] * 100)}%)

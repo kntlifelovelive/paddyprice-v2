@@ -68,6 +68,14 @@ describe('reportsService (dashboard/history/pnl/moisture deduction)', () => {
     expect(dash.summaries.year.purchase_count).toBe(2)
   })
 
+  it('exposes both total_pounds (gross) and total_net_pound (net) in summaries', () => {
+    // Step 10 §2: Dashboard / History displays use NET POUND, not gross.
+    // gross (total_pounds) = 225 + 25 = 250; net (total_net_pound) = 217 + 24 = 241.
+    const dash = getDashboard(db, '2026-08-20')
+    expect(dash.summaries.month.total_pounds).toBe(250)
+    expect(dash.summaries.month.total_net_pound).toBe(241)
+  })
+
   it('groups Dashboard rows by Farmer + Type + Price (never merged across prices)', () => {
     const { groups } = getDashboard(db, '2026-08-20')
     expect(groups).toHaveLength(2)

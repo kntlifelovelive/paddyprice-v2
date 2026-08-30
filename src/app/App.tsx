@@ -2,23 +2,23 @@
  * Application shell composition — docs/ARCHITECTURE.md §3.7 (`app/App.tsx`).
  *
  * Gate order (docs/PROJECT_SPEC.md §1.2): **Device Authorization → App Lock →
- * Application**. The device-auth and app-lock gate UIs arrive with the
- * `features/device-auth` and `features/security` steps (their Step-6 service
- * contracts already exist); until then this shell composes the bootstrap gate
- * only:
+ * Application**. The device-auth gate arrives in a later step. App Lock is
+ * wired in this phase: when enabled + credentials exist, the lock screen
+ * renders before the router. Once unlocked, the router shows normally.
  *
- *   1. bootstrap (DB init + settings + stored theme/language/font scale) —
- *      a loading screen while it runs, a fail-safe error screen if it cannot;
- *   2. once `dbReady`, mount the HashRouter'd application.
+ *   1. bootstrap (DB init + settings + stored theme/language/font scale).
+ *   2. App Lock gate (when credentials are configured and locked).
+ *   3. HashRouter'd application.
  *
- * While any gate is active or bootstrap is incomplete, no routes, layout, or
- * data render (PROJECT_SPEC §1.2).
+ * No routes or layout render while any gate is active (PROJECT_SPEC §1.2).
  */
 import { type ReactNode } from 'react'
 import { ErrorBoundary } from './ErrorBoundary'
 import PaddyRouter from './router'
 import { useAppStore } from './state'
 import { Text } from '@/shared/ui'
+import { useAppLock } from '@/features/security/useAppLock'
+import { LockScreen } from '@/features/security/LockScreen'
 
 function BootstrapScreen() {
   return (
@@ -58,14 +58,27 @@ function BootstrapErrorScreen({ message }: { message: string }) {
 export default function App() {
   const dbReady = useAppStore((s) => s.dbReady)
   const dbError = useAppStore((s) => s.dbError)
+  const appLock = useAppLock()
 
   let content: ReactNode
   if (dbError) {
     content = <BootstrapErrorScreen message={dbError} />
-  } else if (dbReady) {
-    content = <PaddyRouter />
-  } else {
+  } else if (!dbReady) {
     content = <BootstrapScreen />
+  } else if (appLock.locked) {
+    content = (
+      <LockScreen
+        hasPattern={appLock.hasPattern}
+        hasPin={appLock.hasPin}
+        blocked={appLock.blocked}
+        remainingMs={appLock.remainingMs}
+        failures={appLock.failures}
+        onUnlockWithPattern={appLock.unlockWithPattern}
+        onUnlockWithPin={appLock.unlockWithPin}
+      />
+    )
+  } else {
+    content = <PaddyRouter />
   }
 
   return <ErrorBoundary>{content}</ErrorBoundary>

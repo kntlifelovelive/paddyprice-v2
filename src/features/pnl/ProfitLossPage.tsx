@@ -1,12 +1,13 @@
 /**
- * Profit & Loss feature page (Step 8) - PROJECT_SPEC §3.5.
+ * Profit & Loss feature page (Step 8/10) - PROJECT_SPEC §3.5.
  *
  * Composes:
  *  - One row per purchase (date DESC) from STORED SNAPSHOTS only.
  *  - Moisture deduction breakdown table (DOMAIN_RULES §8.1) - deduction
  *    pounds, NOT net pounds. Only labels with data appear as data rows; the
  *    Total row is always present and equals the sum of displayed rows.
- *  - P&L summary totals (gross / moisture-loss / net / amount).
+ *  - P&L summary totals: Gross Pound / Moisture Deduction Pound / Net Pound /
+ *    Tin + Extra Lb / Total Amount — all separate values (rule §7).
  *
  * Display contracts:
  *  - All numbers go through `shared/format`; no manual rounding.
@@ -94,26 +95,37 @@ export function ProfitLossPage(): JSX.Element {
         {t({ my: 'အမြတ်/အရှုံး', en: 'Profit & Loss' })}
       </Text>
 
-      {/* Summary */}
+      {/* Summary — all three pound concepts kept separate: Gross / Deduction / Net */}
       {summary && (
-        <section className="grid gap-3 rounded-lg border border-border bg-surface p-3 sm:grid-cols-5">
+        <section className="grid gap-3 rounded-lg border border-border bg-surface p-3 sm:grid-cols-7">
           <SummaryCell
             label={t({ my: 'အရေအတွက်', en: 'Purchases' })}
             value={formatNumber(summary.purchase_count)}
           />
           <SummaryCell
-            label={t({ my: 'စုစုပေါင်းပေါင် (Gross)', en: 'Gross Pound' })}
+            label={t({ my: 'ပေါင် (Gross)', en: 'Gross Pound' })}
             value={formatNumber(summary.total_gross_pound)}
           />
           <SummaryCell
-            label={t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Moisture Loss' })}
-            value={formatNumber(summary.total_moisture_loss)}
+            label={t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Moisture Deduction' })}
+            value={`${formatNumber(summary.total_moisture_loss)} ${t({ my: 'ပေါင်', en: 'lb' })}`}
           />
           <SummaryCell
             label={t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}
             value={formatNumber(summary.total_net_pound)}
           />
-          <SummaryCell label={t({ my: 'စုစုပေါင်း ငွေ', en: 'Total Amount' })} value={formatMMK(summary.total_amount)} />
+          <SummaryCell
+            label={t({ my: 'တင်း', en: 'Tin' })}
+            value={formatNumber(Math.floor(summary.total_net_pound / 50))}
+          />
+          <SummaryCell
+            label={t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}
+            value={formatNumber(summary.total_net_pound % 50)}
+          />
+          <SummaryCell
+            label={t({ my: 'ငွေ', en: 'Amount' })}
+            value={formatMMK(summary.total_amount)}
+          />
         </section>
       )}
 
@@ -146,7 +158,9 @@ export function ProfitLossPage(): JSX.Element {
                     <Text role="header">{t({ my: 'Gross lb', en: 'Gross lb' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'Moisture', en: 'Moisture' })}</Text>
+                    <Text role="header">
+                      {t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Deduction' })}
+                    </Text>
                   </th>
                   <th className="px-2 py-2 text-right">
                     <Text role="header">{t({ my: 'Net lb', en: 'Net lb' })}</Text>
@@ -194,11 +208,14 @@ export function ProfitLossPage(): JSX.Element {
         )}
       </section>
 
-      {/* Moisture deduction breakdown (§8.1) */}
+      {/* Moisture DEDUCTION POUND breakdown (§8.1) — this table shows DEDUCTION pounds, NOT net pounds */}
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
           <Text as="h2" role="header" className="text-sm font-semibold">
-            {t({ my: 'အစိုဓာတ် နုတ်ယူမှု (lb)', en: 'Moisture Deduction (lb)' })}
+            {t({ my: 'အစိုဓာတ် နုတ်ယူမှု အသေးစိတ် (lb)', en: 'Moisture Deduction Breakdown (lb)' })}
+          </Text>
+          <Text role="muted" className="text-xs">
+            {t({ my: 'ဤဇယားသည် DEDUCTION POUND ကိုသာ ပြသည် — net pound မဟုတ်ပါ', en: 'This table shows DEDUCTION POUND only, not net pound' })}
           </Text>
         </div>
         {deductionEntries.length === 0 ? (
@@ -268,7 +285,9 @@ export function ProfitLossPage(): JSX.Element {
                 ))}
                 <tr className="border-t-2 border-border bg-surface font-semibold">
                   <td className="px-2 py-2" colSpan={4}>
-                    <Text role="header">{t({ my: 'စုစုပေါင်း', en: 'Total' })}</Text>
+                    <Text role="header">
+                      {t({ my: 'စုစုပေါင်း နုတ်ယူမှု', en: 'Total Deduction' })}
+                    </Text>
                   </td>
                   {state.deduction!.byLabel.map((l) => (
                     <td key={`t-${l.label}`} className="px-2 py-2 text-right tabular-nums">

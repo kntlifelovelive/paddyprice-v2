@@ -33,7 +33,9 @@ interface SummaryCardProps {
 
 function SummaryCard({ title, summary, lbPerTin }: SummaryCardProps): JSX.Element {
   const t = useT()
-  const { tins, extraLb } = decomposeNetPound(summary.total_pounds, lbPerTin)
+  // §6.3 — Tin + Extra Lb decomposition uses NET POUND, never gross.
+  // Dashboard displays "Net Pound" and derives tin decomposition from it.
+  const { tins, extraLb } = decomposeNetPound(summary.total_net_pound, lbPerTin)
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
       <Text as="h3" role="header" className="text-sm font-semibold">
@@ -54,7 +56,7 @@ function SummaryCard({ title, summary, lbPerTin }: SummaryCardProps): JSX.Elemen
           </dt>
           <dd>
             <Text role="primary">
-              {formatNumber(summary.total_pounds)} {t({ my: 'ပေါင်', en: 'lb' })}
+              {formatNumber(summary.total_net_pound)} {t({ my: 'ပေါင်', en: 'lb' })}
             </Text>
           </dd>
         </div>

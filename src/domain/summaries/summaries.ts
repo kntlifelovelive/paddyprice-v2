@@ -12,7 +12,17 @@ import type { PurchaseSnapshot } from '@/domain/purchase/types';
 export interface PurchaseAggregate {
   purchase_count: number;
   total_bags: number;
+  /**
+   * Gross pound = Σ bag weights (the raw stored column).
+   * Use `total_net_pound` for display as "Pound" / "Net Pound".
+   */
   total_pounds: number;
+  /**
+   * Net pound = gross − moisture loss (the display-correct pound value).
+   * This is the value that should be shown for "Total Pound", "Net Pound",
+   * and as the basis for Tin + Extra Lb decomposition (DOMAIN_RULES §6.3).
+   */
+  total_net_pound: number;
   total_tins: number;
   total_amount: number;
 }
@@ -25,6 +35,7 @@ export function summarizePurchases(
     purchase_count: 0,
     total_bags: 0,
     total_pounds: 0,
+    total_net_pound: 0,
     total_tins: 0,
     total_amount: 0,
   };
@@ -32,6 +43,7 @@ export function summarizePurchases(
     aggregate.purchase_count += 1;
     aggregate.total_bags += p.total_bags;
     aggregate.total_pounds += p.total_pounds;
+    aggregate.total_net_pound += p.net_pound;
     aggregate.total_tins += p.total_tins;
     aggregate.total_amount += p.total_amount;
   }
@@ -64,12 +76,14 @@ export function summarizeByMonth(
       purchase_count: 0,
       total_bags: 0,
       total_pounds: 0,
+      total_net_pound: 0,
       total_tins: 0,
       total_amount: 0,
     };
     row.purchase_count += 1;
     row.total_bags += p.total_bags;
     row.total_pounds += p.total_pounds;
+    row.total_net_pound += p.net_pound;
     row.total_tins += p.total_tins;
     row.total_amount += p.total_amount;
     map.set(month, row);
@@ -82,7 +96,10 @@ export interface RiceTypeSummaryRow {
   rice_type_id: number;
   rice_type_name: string;
   purchase_count: number;
+  /** Gross pound (raw sum of bag weights). */
   total_pounds: number;
+  /** Net pound for display-correct pound totals. */
+  total_net_pound: number;
   total_tins: number;
   total_amount: number;
 }
@@ -100,6 +117,7 @@ export function summarizeByRiceType(
         rice_type_name: p.rice_type_name,
         purchase_count: 0,
         total_pounds: 0,
+        total_net_pound: 0,
         total_tins: 0,
         total_amount: 0,
       };
@@ -107,6 +125,7 @@ export function summarizeByRiceType(
     }
     row.purchase_count += 1;
     row.total_pounds += p.total_pounds;
+    row.total_net_pound += p.net_pound;
     row.total_tins += p.total_tins;
     row.total_amount += p.total_amount;
   }

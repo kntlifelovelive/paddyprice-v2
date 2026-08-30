@@ -18,7 +18,7 @@
  *  - All numbers go through `shared/format`; no manual rounding.
  *  - Semantic theme tokens only (no hard-coded white/black).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { useAppStore } from '@/app/state'
@@ -106,6 +106,8 @@ export function NewPurchasePage(): JSX.Element {
   // Bag entry input.
   const [weightInput, setWeightInput] = useState('')
   const [bagMoisture, setBagMoistureInput] = useState<MoistureLabelValue>(null)
+  /** Ref for the weight input so we can keep focus on repeated Enter entry. */
+  const weightInputRef = useRef<HTMLInputElement | null>(null)
 
   // Form state.
   const [form, setForm] = useState<PurchaseFormState>(emptyForm)
@@ -190,15 +192,22 @@ export function NewPurchasePage(): JSX.Element {
     }
   }, [dbReady, form.farmerId, form.riceTypeId, form.date, navigate])
 
-  const handleAddWeight = useCallback(() => {
+  /**
+   * Add a bag weight. The `weight` param is passed explicitly so callers (Enter
+   * key) can capture the current input value without stale-closure risk.
+   * On success the `serviceError` is cleared (Step 10 §16: a valid Enter
+   * submission must NOT leave the "Weight is Required" error visible).
+   */
+  const doAddWeight = useCallback((weight: string) => {
     if (purchaseId == null) return
-    if (weightInput.trim() === '') {
+    const trimmed = weight.trim()
+    if (trimmed === '') {
       setForm((f) => ({ ...f, serviceError: 'Weight is required' }))
       return
     }
     try {
       const db = getDatabase()
-      const { totals } = addWeight(db, purchaseId, weightInput, bagMoisture)
+      const { totals } = addWeight(db, purchaseId, trimmed, bagMoisture)
       setWeightInput('')
       const record = getPurchaseRecord(db, purchaseId)
       setForm((f) => ({
@@ -217,10 +226,17 @@ export function NewPurchasePage(): JSX.Element {
         moistureLoss: totals.moisture_loss,
         netPound: totals.net_pound,
       }))
+      // Keep focus on the weight input for repeated entry (Step 10 §16).
+      setTimeout(() => weightInputRef.current?.focus(), 0)
     } catch (e) {
       setForm((f) => ({ ...f, serviceError: e instanceof Error ? e.message : String(e) }))
     }
-  }, [purchaseId, weightInput, bagMoisture])
+  }, [purchaseId, bagMoisture])
+
+  /** Button-triggered weight add (reads current weightInput state). */
+  const handleAddWeight = useCallback(() => {
+    doAddWeight(weightInput)
+  }, [doAddWeight, weightInput])
 
   const handleUndo = useCallback(() => {
     if (purchaseId == null) return
@@ -483,13 +499,25 @@ export function NewPurchasePage(): JSX.Element {
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အလေးချိန် (lb)', en: 'Weight (lb)' })}</Text>
             <input
+              ref={weightInputRef}
               data-testid="weight-input"
               type="text"
               inputMode="decimal"
               value={weightInput}
-              onChange={(e) => setWeightInput(e.target.value)}
+              onChange={(e) => {
+                setWeightInput(e.target.value)
+                // Clear any prior validation error as soon as the user starts typing
+                // a new weight (Step 10 §16 — invalid input still shows; valid
+                // input never leaves a stale error visible).
+                if (form.serviceError === 'Weight is required') {
+                  setForm((f) => ({ ...f, serviceError: null }))
+                }
+              }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddWeight()
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  doAddWeight((e.target as HTMLInputElement).value)
+                }
               }}
               className="w-32 rounded border border-border bg-background px-2 py-1.5"
             />
