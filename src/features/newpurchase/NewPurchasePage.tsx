@@ -561,7 +561,9 @@ export function NewPurchasePage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {form.bags.map((bag) => (
+                {/* Display newest-first (highest bag number on top). The
+                    underlying bags array order/seq logic is unchanged. */}
+                {[...form.bags].reverse().map((bag) => (
                   <tr key={bag.seq} className="border-b border-border last:border-b-0">
                     <td className="px-2 py-1 text-right tabular-nums">
                       <Text role="secondary">{bag.seq}</Text>
@@ -639,8 +641,8 @@ export function NewPurchasePage(): JSX.Element {
         )}
       </section>
 
-      {/* Summary — reference-style card grid. Net Pound + Amount highlighted.
-          Values come from the existing purchase totals logic (no new math). */}
+      {/* Summary — reference-style card grid, uniform styling (no highlight
+          borders). Values come from the existing purchase totals logic. */}
       <section className="rounded-lg border border-border bg-surface p-3">
         <Text as="h2" role="header" className="text-sm font-semibold">
           {t({ my: 'စုစုပေါင်း', en: 'Totals' })}
@@ -659,7 +661,6 @@ export function NewPurchasePage(): JSX.Element {
             value={`${formatNumber(form.moistureLoss)} ${t({ my: 'ပေါင်', en: 'lb' })}`}
           />
           <SummaryCard
-            highlight
             label={t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}
             value={formatNumber(form.netPound)}
           />
@@ -670,7 +671,6 @@ export function NewPurchasePage(): JSX.Element {
             )} ${t({ my: 'ပေါင်', en: 'lb' })}`}
           />
           <SummaryCard
-            highlight
             label={t({ my: 'ငွေ', en: 'Amount' })}
             value={formatMMK(form.totalAmount)}
           />
@@ -680,30 +680,20 @@ export function NewPurchasePage(): JSX.Element {
   )
 }
 
-/** Reference-style summary card: muted uppercase label over a bold value.
- *  `highlight` marks the business-critical figures (Net Pound, Amount). */
+/** Reference-style summary card: muted uppercase label over a bold value. */
 function SummaryCard({
   label,
   value,
-  highlight = false,
 }: {
   label: string
   value: string
-  highlight?: boolean
 }): JSX.Element {
   return (
-    <div
-      className={`rounded-lg border p-2.5 ${
-        highlight ? 'border-accent bg-background' : 'border-border bg-background'
-      }`}
-    >
+    <div className="rounded-lg border border-border bg-background p-2.5">
       <Text role="muted" className="text-xs font-medium uppercase tracking-wide">
         {label}
       </Text>
-      <Text
-        role="primary"
-        className={`mt-1 block font-bold tabular-nums ${highlight ? 'text-accent' : ''}`}
-      >
+      <Text role="primary" className="mt-1 block font-bold tabular-nums">
         {value}
       </Text>
     </div>
