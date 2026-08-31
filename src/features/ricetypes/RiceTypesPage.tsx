@@ -15,7 +15,7 @@ import {
 } from '@/infrastructure/db/dao/riceTypes'
 import type { RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
-import { Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text, cn } from '@/shared/ui'
 
 interface Draft {
   name: string
@@ -258,23 +258,24 @@ export function RiceTypesPage(): JSX.Element {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => beginEdit(rt)}
-                            className={cn(
-                              'rounded border border-border bg-surface px-2 py-0.5 text-xs',
-                              'hover:bg-surface-hover',
-                            )}
+                            aria-label={t({ my: 'စပါးအမျိုးအစား ပြင်ရန်', en: 'Edit paddy type' })}
+                            title={t({ my: 'စပါးအမျိုးအစား ပြင်ရန်', en: 'Edit paddy type' })}
+                            className="rounded p-1.5 text-warning hover:bg-surface-hover"
                           >
-                            {t({ my: 'ပြင်ဆင်', en: 'Edit' })}
+                            <EditIcon size="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(rt.id)}
-                            className="rounded border border-border bg-surface px-2 py-0.5 text-xs hover:bg-surface-hover"
+                            aria-label={t({ my: 'စပါးအမျိုးအစား ဖျက်ရန်', en: 'Delete paddy type' })}
+                            title={t({ my: 'စပါးအမျိုးအစား ဖျက်ရန်', en: 'Delete paddy type' })}
+                            className="rounded p-1.5 text-danger hover:bg-surface-hover"
                           >
-                            {t({ my: 'ဖျက်', en: 'Delete' })}
+                            <DeleteIcon size="h-4 w-4" />
                           </button>
                         </div>
                       )}

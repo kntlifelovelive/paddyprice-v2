@@ -33,61 +33,81 @@ import type { RiceType } from '@/types'
 type PeriodSummary = DashboardData['summaries']['today']
 type DashboardGroup = DashboardData['groups'][number]
 
-interface SummaryCardProps {
-  title: string
-  summary: PeriodSummary
-  lbPerTin: number
+/** Reference-style summary chip (Home totals strip). */
+function SummaryChip({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}): JSX.Element {
+  return (
+    <div className={`rounded-lg px-3 py-2 ${highlight ? 'bg-accent/20' : 'bg-background'}`}>
+      <Text role="muted" className="block truncate text-[11px] font-medium uppercase tracking-wide">
+        {label}
+      </Text>
+      <Text
+        role="primary"
+        className={`mt-0.5 block truncate text-base font-bold ${highlight ? 'text-accent' : ''}`}
+      >
+        {value}
+      </Text>
+    </div>
+  )
 }
 
-function SummaryCard({ title, summary, lbPerTin }: SummaryCardProps): JSX.Element {
+/** Home totals strip for the selected period + paddy type (reference layout:
+ *  six summary chips; Pound = NET pound, tin decomposes it). */
+function SummaryStrip({
+  title,
+  summary,
+  farmers,
+  lbPerTin,
+}: {
+  title: string
+  summary: PeriodSummary
+  farmers: number
+  lbPerTin: number
+}): JSX.Element {
   const t = useT()
   // §6.3 — Tin + Extra Lb decomposition uses NET POUND, never gross.
-  // Dashboard displays "Net Pound" and derives tin decomposition from it.
   const { tins, extraLb } = decomposeNetPound(summary.total_net_pound, lbPerTin)
   return (
-    <section className="rounded-lg border border-border bg-surface p-4">
-      <Text as="h3" role="header" className="text-sm font-semibold">
+    <section className="rounded-lg border border-border bg-surface p-3">
+      <Text as="h3" role="header" className="mb-2 text-sm font-semibold">
         {title}
       </Text>
-      <dl className="mt-3 space-y-1.5 text-sm">
-        <div className="flex justify-between gap-2">
-          <dt>
-            <Text role="secondary">{t({ my: 'အရေအတွက်', en: 'Purchases' })}</Text>
-          </dt>
-          <dd>
-            <Text role="primary">{formatNumber(summary.purchase_count)}</Text>
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>
-            <Text role="secondary">{t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}</Text>
-          </dt>
-          <dd>
-            <Text role="primary">
-              {formatNumber(summary.total_net_pound)} {t({ my: 'ပေါင်', en: 'lb' })}
-            </Text>
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>
-            <Text role="secondary">{t({ my: 'တင်း', en: 'Tin' })}</Text>
-          </dt>
-          <dd>
-            <Text role="primary">
-              {formatTins(tins)} {t({ my: 'တင်း +', en: 'Tin +' })}{' '}
-              {formatNumber(extraLb)} {t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}
-            </Text>
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt>
-            <Text role="secondary">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
-          </dt>
-          <dd>
-            <Text role="primary">{formatMMK(summary.total_amount)}</Text>
-          </dd>
-        </div>
-      </dl>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <SummaryChip
+          label={t({ my: 'လယ်သမား', en: 'Customers' })}
+          value={formatNumber(farmers)}
+        />
+        <SummaryChip
+          label={t({ my: 'ဝယ်ယူမှု', en: 'Purchases' })}
+          value={formatNumber(summary.purchase_count)}
+        />
+        <SummaryChip
+          label={t({ my: 'အိတ်', en: 'Bags' })}
+          value={formatNumber(summary.total_bags)}
+        />
+        <SummaryChip
+          label={t({ my: 'ပေါင်', en: 'Pound' })}
+          value={`${formatNumber(summary.total_net_pound)} ${t({ my: 'ပေါင်', en: 'lb' })}`}
+        />
+        <SummaryChip
+          label={t({ my: 'တင်း', en: 'Tin' })}
+          value={`${formatTins(tins)} ${t({ my: 'တင်း +', en: 'Tin +' })} ${formatNumber(
+            extraLb,
+          )} ${t({ my: 'ပေါင်', en: 'lb' })}`}
+        />
+        <SummaryChip
+          highlight
+          label={t({ my: 'စုစုပေါင်းငွေ', en: 'Total Amount' })}
+          value={formatMMK(summary.total_amount)}
+        />
+      </div>
     </section>
   )
 }
@@ -370,8 +390,13 @@ export function DashboardPage(): JSX.Element {
         </select>
       </div>
 
-      {/* Summary for the selected period (single card, not a fixed row). */}
-      <SummaryCard title={summaryTitle} summary={view.summary} lbPerTin={lbPerTin} />
+      {/* Summary strip for the selected period (reference Home totals UI). */}
+      <SummaryStrip
+        title={summaryTitle}
+        summary={view.summary}
+        farmers={view.farmerCount}
+        lbPerTin={lbPerTin}
+      />
       {/* Per-date grouped tables (newest date first), each with a
           column-wise Total row. */}
       {view.dateGroups.length === 0 ? (

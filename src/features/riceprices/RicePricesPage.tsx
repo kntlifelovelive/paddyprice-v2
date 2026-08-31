@@ -24,7 +24,7 @@ import { formatPriceShorthand, parsePriceFormat } from '@/domain/paddy/price'
 import { formatMMK, formatNumber } from '@/shared/format'
 import type { RicePrice, RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
-import { Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text } from '@/shared/ui'
 
 function priceFromShorthand(
   shorthand: string,
@@ -306,22 +306,20 @@ export function RicePricesPage(): JSX.Element {
                           <button
                             type="button"
                             onClick={() => handleEdit(p.id)}
-                            className={cn(
-                              'rounded border border-border bg-surface px-2 py-0.5 text-xs',
-                              'hover:bg-surface-hover',
-                            )}
+                            aria-label={t({ my: 'စပါးဈေး ပြင်ရန်', en: 'Edit rice price' })}
+                            title={t({ my: 'စပါးဈေး ပြင်ရန်', en: 'Edit rice price' })}
+                            className="rounded p-1.5 text-warning hover:bg-surface-hover"
                           >
-                            {t({ my: 'ပြင်မည်', en: 'Edit' })}
+                            <EditIcon size="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(p.id)}
-                            className={cn(
-                              'rounded border border-border bg-surface px-2 py-0.5 text-xs',
-                              'hover:bg-surface-hover',
-                            )}
+                            aria-label={t({ my: 'စပါးဈေး ဖျက်ရန်', en: 'Delete rice price' })}
+                            title={t({ my: 'စပါးဈေး ဖျက်ရန်', en: 'Delete rice price' })}
+                            className="rounded p-1.5 text-danger hover:bg-surface-hover"
                           >
-                            {t({ my: 'ဖျက်မည်', en: 'Delete' })}
+                            <DeleteIcon size="h-4 w-4" />
                           </button>
                         </div>
                       )}

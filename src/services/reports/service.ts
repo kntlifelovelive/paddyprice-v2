@@ -92,6 +92,8 @@ export interface DashboardView {
   groups: DashboardGroupRow[]
   /** Same rows, grouped by their own date — newest date first. */
   dateGroups: DashboardDateGroup[]
+  /** Distinct customers in the filtered dataset (reference Home strip). */
+  farmerCount: number
 }
 
 /**
@@ -133,6 +135,7 @@ export function getDashboardView(
     summary: summarizePurchases(typed),
     groups: buildDashboardGroupRows(typed),
     dateGroups,
+    farmerCount: new Set(typed.map((s) => s.farmer_id)).size,
   }
 }
 
