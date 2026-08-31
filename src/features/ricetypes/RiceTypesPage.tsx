@@ -15,7 +15,7 @@ import {
 } from '@/infrastructure/db/dao/riceTypes'
 import type { RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, StatusDotIcon, Text, cn } from '@/shared/ui'
 
 interface Draft {
   name: string
@@ -229,11 +229,20 @@ export function RiceTypesPage(): JSX.Element {
                           </Text>
                         </label>
                       ) : (
-                        <Text role={rt.active === 1 ? 'primary' : 'muted'}>
-                          {rt.active === 1
-                            ? t({ my: 'အသုံးပြုနိုင်', en: 'Active' })
-                            : t({ my: 'ပိတ်ထား', en: 'Inactive' })}
-                        </Text>
+                        <span className="inline-flex items-center gap-1.5">
+                          <StatusDotIcon
+                            size="h-3 w-3"
+                            className={rt.active === 1 ? 'text-success' : 'text-content-muted'}
+                            aria-label={rt.active === 1
+                              ? t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })
+                              : t({ my: 'ပိတ်ထား', en: 'Inactive' })}
+                          />
+                          <Text role={rt.active === 1 ? 'primary' : 'muted'}>
+                            {rt.active === 1
+                              ? t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })
+                              : t({ my: 'ပိတ်ထား', en: 'Inactive' })}
+                          </Text>
+                        </span>
                       )}
                     </td>
                     <td className="px-2 py-1 text-right">

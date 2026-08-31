@@ -251,8 +251,8 @@ export function SettingsPage(): JSX.Element {
           ))}
         </nav>
 
-        {/* Right detail panel */}
-        <div className="min-w-0 flex-1 overflow-y-auto px-4 py-4">
+                {/* Right detail panel */}
+        <div className="min-w-0 flex-1 overflow-y-auto bg-surface px-4 py-4">
           {tab === 'company' && (
             <CompanyTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
           )}

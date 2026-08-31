@@ -27,7 +27,7 @@ import {
 import type { MoistureConfig } from '@/types'
 import { formatDateDMY } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, Text } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text, ToggleSwitch } from '@/shared/ui'
 
 function labelText(label: MoistureLabelValue): string {
   return label == null ? 'None' : String(label)
@@ -202,17 +202,14 @@ export function MoisturePage(): JSX.Element {
               ))}
             </select>
           </label>
-          <label className="flex flex-col gap-1">
-            <Text role="secondary">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as 'default' | 'active')}
-              className="rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="active">{t({ my: 'အသုံးပြုမည်', en: 'Active' })}</option>
-              <option value="default">{t({ my: 'မူလ', en: 'Default' })}</option>
-            </select>
-          </label>
+          <div className="flex items-center gap-2">
+            <Text role="secondary">{t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })}</Text>
+            <ToggleSwitch
+              checked={status === 'active'}
+              onChange={(on) => setStatus(on ? 'active' : 'default')}
+              aria-label={t({ my: 'အခြေအနေ', en: 'Status' })}
+            />
+          </div>
         </div>
         <button
           type="button"

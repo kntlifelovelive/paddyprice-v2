@@ -178,3 +178,13 @@ export function ChevronDownIcon({ size = D, className = '', 'aria-label': label 
     </svg>
   )
 }
+
+/** Status dot — filled circle for active/inactive state indicators. */
+export function StatusDotIcon({ size = D, className = '', 'aria-label': label }: IconProps): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-label={label}
+      className={`shrink-0 ${size} ${className}`}>
+      <circle cx="12" cy="12" r="8" />
+    </svg>
+  )
+}
