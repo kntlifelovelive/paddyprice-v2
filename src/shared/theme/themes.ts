@@ -44,6 +44,8 @@ export interface ThemeDefinition {
   readonly name: string
   /** `true` ⇒ light-scheme theme. */
   readonly light: boolean
+  /** Settings-list preview colours: [background, surface, accent, info, warning, danger]. */
+  readonly swatch: readonly [string, string, string, string, string, string]
 }
 
 const LIGHT_THEMES: ReadonlySet<string> = new Set([
@@ -83,10 +85,40 @@ const THEME_NAMES: Record<ThemeId, string> = {
   midnight: 'Midnight',
 }
 
+/**
+ * Settings theme-list preview chips — mirrors the `--c-*` values in
+ * tokens.css (source of truth). Order: background, surface, accent, info,
+ * warning, danger. Keep in sync when editing tokens.css.
+ */
+const THEME_SWATCHES: Record<ThemeId, readonly [string, string, string, string, string, string]> = {
+  'tokyo-night': ['#1a1b26', '#1f2335', '#7aa2f7', '#7dcfff', '#e0af68', '#f7768e'],
+  'github-light': ['#ffffff', '#f6f8fa', '#1a7f37', '#0969da', '#9a6700', '#cf222e'],
+  'tokyo-night-storm': ['#24283b', '#1f2335', '#7aa2f7', '#7dcfff', '#e0af68', '#f7768e'],
+  'one-dark': ['#282c34', '#21252b', '#61afef', '#61afef', '#e5c07b', '#e06c75'],
+  'gruvbox-dark': ['#282828', '#32302f', '#fabd2f', '#83a598', '#fabd2f', '#fb4934'],
+  'catppuccin-mocha': ['#1e1e2e', '#181825', '#89b4fa', '#89dceb', '#f9e2af', '#f38ba8'],
+  nord: ['#2e3440', '#3b4252', '#88c0d0', '#8fbcbb', '#ebcb8b', '#bf616a'],
+  dracula: ['#282a36', '#21222c', '#bd93f9', '#8be9fd', '#f1fa8c', '#ff5555'],
+  'everforest-dark': ['#2d3830', '#272f27', '#a7c080', '#7fb8a4', '#e5c07b', '#e67071'],
+  kanagawa: ['#1f1f28', '#23252f', '#7e9a60', '#7fb8a4', '#e5c07b', '#cf7a70'],
+  'rose-pine': ['#191724', '#1f1d2b', '#c4a7e7', '#9ccfd8', '#f6c177', '#eb6f92'],
+  'solarized-light': ['#fdf6e3', '#eee8d5', '#268bd2', '#2aa198', '#b58900', '#dc322f'],
+  'one-light': ['#fafafa', '#f0f0f0', '#4078f2', '#4078f2', '#c18401', '#e45649'],
+  'nord-light': ['#eceff4', '#e5e9f0', '#88c0d0', '#8fbcbb', '#ebcb8b', '#bf616a'],
+  'catppuccin-latte': ['#eff1f5', '#e6e9ef', '#1e66f5', '#04a5e5', '#df8e1d', '#d20f39'],
+  'everforest-light': ['#f3ead6', '#e4ddc8', '#a7c080', '#7fb8a4', '#e5c07b', '#e67071'],
+  'rose-pine-dawn': ['#faf4ed', '#f2ece4', '#b4639c', '#9ccfd8', '#e5c07b', '#eb6f92'],
+  'emerald-light': ['#f0fdf4', '#e6f7ed', '#10b981', '#06b6d4', '#f59e0b', '#ef4444'],
+  'sky-light': ['#f0f9ff', '#e0f2fe', '#0ea5e9', '#38bdf8', '#f59e0b', '#ef4444'],
+  'warm-paper': ['#f5f0e8', '#ebe5d9', '#c4720a', '#4a7a8a', '#c4720a', '#c44a2a'],
+  midnight: ['#0d0d0d', '#171717', '#5c8ae6', '#5ca8d6', '#c4a02a', '#c44a4a'],
+}
+
 export const THEMES: readonly ThemeDefinition[] = THEME_IDS.map((id) => ({
   id,
   name: THEME_NAMES[id],
   light: LIGHT_THEMES.has(id),
+  swatch: THEME_SWATCHES[id],
 }))
 
 export const DEFAULT_THEME: ThemeId = 'tokyo-night'

@@ -127,7 +127,7 @@ const V1_INITIAL_SCHEMA: Migration = {
       ('theme', 'tokyo-night'),
       ('pdf_dir', 'PSO/pdf'),
       ('font_size', 'normal'),
-      ('language', 'my'),
+      ('language', 'en'),
       ('moisture_rates', '${JSON.stringify(DEFAULT_MOISTURE_RATES)}')`,
   ],
 }

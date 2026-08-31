@@ -169,6 +169,9 @@ export function RiceTypesPage(): JSX.Element {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
                   <th className="px-2 py-2 text-left">
                     <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
@@ -184,8 +187,11 @@ export function RiceTypesPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((rt) => (
+                {items.map((rt, idx) => (
                   <tr key={rt.id} className="border-b border-border last:border-b-0">
+                    <td className="w-10 px-2 py-1 text-right tabular-nums">
+                      <Text role="secondary">{items.length - idx}</Text>
+                    </td>
                     <td className="px-2 py-1">
                       {editingId === rt.id ? (
                         <input

@@ -6,6 +6,7 @@
 import type { Database } from 'sql.js'
 import type { RicePrice } from '@/types'
 import { insert, queryAll, queryOne, run, type Row } from './sql'
+import { scheduleSave } from '../persistence'
 
 const COLS = 'id, date, rice_type_id, price_100_tin, price_per_tin, created_at, updated_at'
 
@@ -41,6 +42,7 @@ export function createRicePrice(db: Database, input: RicePriceInput, now: string
      VALUES (?, ?, ?, ?, ?, ?)`,
     [input.date, input.rice_type_id, input.price_100_tin, input.price_per_tin, now, now],
   )
+  scheduleSave()
   return getRicePrice(db, id) as RicePrice
 }
 
@@ -100,11 +102,14 @@ export function updateRicePrice(
     sets.push('updated_at = ?')
     params.push(now, id)
     run(db, `UPDATE rice_prices SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSave()
   }
   return getRicePrice(db, id)
 }
 
 export function deleteRicePrice(db: Database, id: number): boolean {
   run(db, 'DELETE FROM rice_prices WHERE id = ?', [id])
-  return db.getRowsModified() > 0
+  const deleted = db.getRowsModified() > 0
+  if (deleted) scheduleSave()
+  return deleted
 }

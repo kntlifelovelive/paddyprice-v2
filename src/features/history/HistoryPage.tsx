@@ -6,6 +6,7 @@
  * - Tin + Extra Lb decompose that net pound via the domain helper.
  * - Newest purchase first (DAO order: date DESC, id DESC) with visible NO in
  *   descending order — a UI convention only; stored ids/seq are untouched.
+ * - Rows are grouped by date (newest date first) with a per-day summary row.
  * - Per-row actions: Edit (open the existing New Purchase page pre-filled),
  *   PDF (generate the voucher PDF), Print (open the thermal receipt).
  * - Semantic theme text tokens only; no hard-coded colors.
@@ -17,7 +18,6 @@ import type { Database } from 'sql.js'
 import { getDatabase } from '@/infrastructure/db'
 import { getHistoryRecords } from '@/services/reports'
 import { settingsService } from '@/services/settings'
-import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import { formatDateDMY, formatMMK, formatNumber } from '@/shared/format'
 import { useT } from '@/shared/hooks'
 import { EditIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
@@ -144,101 +144,126 @@ export function HistoryPage() {
     )
   }
 
+  // Group records by `date` (YYYY-MM-DD), newest date first. The date is
+  // already a sortable YYYY-MM-DD string, so group keys sort lexically.
+  const groups = new Map<string, PurchaseRecord[]>()
+  for (const record of records) {
+    const date = record.snapshot.date.split('T')[0] ?? record.snapshot.date
+    const list = groups.get(date) ?? []
+    list.push(record)
+    groups.set(date, list)
+  }
+  const sortedDates = Array.from(groups.keys()).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+
   return (
-    <div className="p-3 sm:p-4" data-page="history">
-      <Text as="h1" role="header" className="mb-3 text-lg font-semibold">
+    <div className="space-y-3 p-3 sm:p-4" data-page="history">
+      <Text as="h1" role="header" className="text-lg font-semibold">
         {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
       </Text>
       {flash && (
-        <div role="status" className={`mb-2 rounded border px-3 py-1.5 text-sm ${flash.kind === 'ok' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>
+        <div role="status" className={`rounded border px-3 py-1.5 text-sm ${flash.kind === 'ok' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>
           {flash.text}
         </div>
       )}
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table data-testid="history-table" className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="border-b border-border bg-surface">
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အစဉ်', en: 'NO' })}</th>
-              <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
-              <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'ရက်စွဲ', en: 'Date' })}</th>
-              <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'လယ်သမား', en: 'Farmer' })}</th>
-              <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အိတ်', en: 'Bags' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'တင်', en: 'Tin' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အပို ပေါင်', en: 'Extra Lb' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ငွေ', en: 'Amount' })}</th>
-              <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {records.map((record, index) => {
-              const s = record.snapshot
-              const { tins, extraLb } = decomposeNetPound(s.net_pound, lbPerTin)
-              return (
-                <tr key={s.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover/40">
-                  <td className="px-2 py-2 text-right tabular-nums text-content-muted">
-                    {records.length - index}
-                  </td>
-                  <td className="px-2 py-2">
-                    <Text role="primary" className="font-medium tabular-nums">{s.purchase_no}</Text>
-                  </td>
-                  <td className="px-2 py-2 text-content-secondary tabular-nums">{formatDateDMY(s.date)}</td>
-                  <td className="px-2 py-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/history/${s.farmer_id}`)}
-                      className="font-medium text-content-primary hover:underline"
-                    >
-                      {s.farmer_name}
-                    </button>
-                  </td>
-                  <td className="px-2 py-2 text-content-secondary">{s.rice_type_name}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{s.total_bags}</td>
-                  {/* Total Pound = NET pound (§3) — never gross or deduction. */}
-                  <td className="px-2 py-2 text-right tabular-nums text-content-primary font-medium">{formatNumber(s.net_pound)}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{tins}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{formatNumber(extraLb)}</td>
-                  <td className="px-2 py-2 text-right tabular-nums text-content-primary font-semibold">{formatMMK(s.total_amount)}</td>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/purchase/${s.id}`)}
-                        title={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
-                        aria-label={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
-                        className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary"
-                      >
-                        <EditIcon size="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { void handlePdf(s.id) }}
-                        disabled={busyId === s.id}
-                        title={t({ my: 'PDF', en: 'PDF' })}
-                        aria-label={t({ my: 'PDF ထုတ်မည်', en: 'Export PDF' })}
-                        className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
-                      >
-                        {busyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { void handlePrint(record, lbPerTin) }}
-                        disabled={busyId === s.id}
-                        title={t({ my: 'ပရင့်', en: 'Print' })}
-                        aria-label={t({ my: 'ပရင့်ထုတ်မည်', en: 'Print Receipt' })}
-                        className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
-                      >
-                        <PrintIcon size="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      {sortedDates.map((date) => {
+        const group = groups.get(date) ?? []
+        const gBags = group.reduce((s, r) => s + r.snapshot.total_bags, 0)
+        const gPound = group.reduce((s, r) => s + r.snapshot.net_pound, 0)
+        const gAmount = group.reduce((s, r) => s + r.snapshot.total_amount, 0)
+        return (
+          <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
+            <div className="flex items-center justify-between border-b border-border bg-surface-hover px-3 py-2">
+              <Text as="h2" role="header" className="text-sm font-semibold">
+                {formatDateDMY(date)}
+              </Text>
+              <div className="flex items-center gap-3 text-xs tabular-nums text-content-muted">
+                <span>{group.length} × {t({ my: 'အရောင်း', en: 'sales' })}</span>
+                <span>{formatNumber(gBags)} {t({ my: 'အိတ်', en: 'bags' })}</span>
+                <span>{formatNumber(gPound)} {t({ my: 'ပေါင်', en: 'lb' })}</span>
+                <span className="font-semibold text-content-secondary">{formatMMK(gAmount)}</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table data-testid="history-table" className="w-full min-w-[620px] text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface">
+                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အစဉ်', en: 'NO' })}</th>
+                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
+                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'အမည်', en: 'Name' })}</th>
+                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
+                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အိတ်', en: 'Bags' })}</th>
+                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
+                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ငွေ', en: 'Amount' })}</th>
+                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.map((record, index) => {
+                    const s = record.snapshot
+                    return (
+                      <tr key={s.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover/40">
+                        <td className="px-2 py-2 text-right tabular-nums text-content-muted">
+                          {group.length - index}
+                        </td>
+                        <td className="px-2 py-2">
+                          <Text role="primary" className="font-medium tabular-nums">{s.purchase_no}</Text>
+                        </td>
+                        <td className="px-2 py-2">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/history/${s.farmer_id}`)}
+                            className="font-medium text-content-primary hover:underline"
+                          >
+                            {s.farmer_name}
+                          </button>
+                        </td>
+                        <td className="px-2 py-2 text-content-secondary">{s.rice_type_name}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{s.total_bags}</td>
+                        {/* NET pound (§3) — never gross or deduction. */}
+                        <td className="px-2 py-2 text-right tabular-nums text-content-primary font-medium">{formatNumber(s.net_pound)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-content-primary font-semibold">{formatMMK(s.total_amount)}</td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/purchase/${s.id}`)}
+                              title={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
+                              aria-label={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
+                              className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary"
+                            >
+                              <EditIcon size="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { void handlePdf(s.id) }}
+                              disabled={busyId === s.id}
+                              title={t({ my: 'PDF', en: 'PDF' })}
+                              aria-label={t({ my: 'PDF ထုတ်မည်', en: 'Export PDF' })}
+                              className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
+                            >
+                              {busyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { void handlePrint(record, lbPerTin) }}
+                              disabled={busyId === s.id}
+                              title={t({ my: 'ပရင့်', en: 'Print' })}
+                              aria-label={t({ my: 'ပရင့်ထုတ်မည်', en: 'Print Receipt' })}
+                              className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
+                            >
+                              <PrintIcon size="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }

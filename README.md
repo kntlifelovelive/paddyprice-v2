@@ -47,9 +47,8 @@ It is **not a feature expansion**:
   `docs/`.
 - The reference test suite (**93 tests across 6 files**) is treated as a
   **behavioral specification** the future implementation must satisfy.
-- The sections below for Installation, Development, Testing, Build, Android,
-  Electron, and Web are **placeholders** — commands will be added only once
-  implementation exists and is confirmed.
+- The Android section is confirmed working (Capacitor). The Electron
+  and static web deployment sections are still placeholders.
 
 ## 4. Technology stack (as documented)
 
@@ -253,8 +252,56 @@ governs *how V2 is structured*.
 
 ## 16. Android (Capacitor)
 
-> Placeholder — Android build/sync/run steps will be documented here once the
-> Capacitor shell is added.
+The Paddy app is packaged for Android via **Capacitor**: the existing web
+bundle (`dist/`) is loaded by a native WebView, so the same offline-first
+IndexedDB + sql.js persistence layer used on desktop/web continues to work
+inside Android with no backend, no cloud sync, and no network calls.
+
+### 16.1 App identity
+
+| Field        | Value                  |
+|--------------|------------------------|
+| App name     | `Paddy`                |
+| App ID       | `com.paddy.paddyprice` |
+| Version      | `1.0` (versionCode 1)  |
+| Min SDK      | 24 (Android 7.0)       |
+| Target SDK   | 36                     |
+| Permissions  | `INTERNET` (Capacitor WebView default — no network endpoints are contacted at runtime) |
+
+### 16.2 Icon
+
+The launcher icon is generated from the existing `icon_source.jpg` by
+`scripts/build-android-icons.mjs`. The script:
+
+1. Centre-crops the JPG to a square.
+2. Resizes it to all required Android densities
+   (`mdpi` → `xxxhdpi`, both `ic_launcher.png`, `ic_launcher_round.png`,
+   and the adaptive `ic_launcher_foreground.png`).
+3. Samples the dominant colour from the JPG and writes it to
+   `res/values/colors.xml` as `ic_launcher_background`, so the adaptive
+   icon background blends with the original artwork.
+
+The original JPG is not modified, the icon is not redesigned, and the
+visual identity is preserved.
+
+### 16.3 Build
+
+```bash
+# 1. Install Android SDK + platform-36 + build-tools 36.0.0 if not present.
+# 2. Build the web bundle and copy it into the Android assets.
+npm run cap:sync
+
+# 3. Assemble a debug APK.
+npm run android:assemble:debug
+# Output: android/app/build/outputs/apk/debug/app-debug.apk
+
+# 4. (optional) Re-generate launcher icons from icon_source.jpg.
+npm run icons:android
+```
+
+The Capacitor config lives in `capacitor.config.ts` and points at
+`com.paddy.paddyprice` + the `dist/` web directory. The Android shell
+(Gradle / manifest / resources) lives under `android/`.
 
 ## 17. Desktop (Electron)
 

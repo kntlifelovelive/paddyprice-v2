@@ -3,6 +3,13 @@
  *
  * CRUD over the farmers list. Goes through `infrastructure/db/dao/farmers`;
  * no business calculation lives here.
+ *
+ * Step 11 §3 — Address and Phone Number are added to the create/edit form and
+ * to the data table. The columns already exist on `farmers` (v1 schema) and
+ * the DAO accepts them; the page simply reuses the existing contracts.
+ *
+ * Step 11 §7 — newest-first display order; the table shows a No column where
+ * the newest row has the highest No and `1` is at the bottom.
  */
 import { useEffect, useState } from 'react'
 
@@ -12,17 +19,29 @@ import {
   deleteFarmer,
   listFarmers,
   updateFarmer,
+  type FarmerInput,
+  type FarmerPatch,
 } from '@/infrastructure/db/dao/farmers'
 import type { Farmer } from '@/types'
 import { useT } from '@/shared/hooks'
 import { Text, cn } from '@/shared/ui'
 
+interface FarmerDraft {
+  name: string
+  address: string
+  phone: string
+}
+
+function emptyDraft(): FarmerDraft {
+  return { name: '', address: '', phone: '' }
+}
+
 export function FarmersPage(): JSX.Element {
   const t = useT()
   const [items, setItems] = useState<Farmer[]>([])
-  const [draftName, setDraftName] = useState('')
+  const [draft, setDraft] = useState<FarmerDraft>(emptyDraft())
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [editingName, setEditingName] = useState('')
+  const [editingDraft, setEditingDraft] = useState<FarmerDraft>(emptyDraft())
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,14 +61,19 @@ export function FarmersPage(): JSX.Element {
   }
 
   const handleAdd = () => {
-    const name = draftName.trim()
+    const name = draft.name.trim()
     if (name === '') {
       setError('Name is required')
       return
     }
     try {
-      createFarmer(getDatabase(), { name })
-      setDraftName('')
+      const input: FarmerInput = {
+        name,
+        address: draft.address.trim(),
+        phone: draft.phone.trim(),
+      }
+      createFarmer(getDatabase(), input)
+      setDraft(emptyDraft())
       setError(null)
       refresh()
     } catch (e) {
@@ -57,14 +81,24 @@ export function FarmersPage(): JSX.Element {
     }
   }
 
+  const beginEdit = (f: Farmer) => {
+    setEditingId(f.id)
+    setEditingDraft({ name: f.name, address: f.address, phone: f.phone })
+  }
+
   const handleSave = (id: number) => {
-    const name = editingName.trim()
+    const name = editingDraft.name.trim()
     if (name === '') {
       setError('Name is required')
       return
     }
     try {
-      updateFarmer(getDatabase(), id, { name })
+      const patch: FarmerPatch = {
+        name,
+        address: editingDraft.address.trim(),
+        phone: editingDraft.phone.trim(),
+      }
+      updateFarmer(getDatabase(), id, patch)
       setEditingId(null)
       setError(null)
       refresh()
@@ -99,14 +133,31 @@ export function FarmersPage(): JSX.Element {
         <Text as="h2" role="header" className="text-sm font-semibold">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add' })}
         </Text>
-        <div className="mt-2 flex flex-wrap gap-2 text-sm">
+        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
           <input
             type="text"
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
-            placeholder={t({ my: 'လယ်သမား အမည်', en: 'Farmer name' })}
-            className="flex-1 rounded border border-border bg-background px-2 py-1.5"
+            value={draft.name}
+            onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+            placeholder={t({ my: 'လယ်သမား အမည်', en: 'Customer name' })}
+            className="rounded border border-border bg-background px-2 py-1.5"
           />
+          <input
+            type="text"
+            value={draft.phone}
+            onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
+            placeholder={t({ my: 'ဖုန်းနံပါတ်', en: 'Phone number' })}
+            className="rounded border border-border bg-background px-2 py-1.5"
+            inputMode="tel"
+          />
+          <input
+            type="text"
+            value={draft.address}
+            onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
+            placeholder={t({ my: 'လိပ်စာ', en: 'Address' })}
+            className="rounded border border-border bg-background px-2 py-1.5 sm:col-span-2"
+          />
+        </div>
+        <div className="mt-2 flex justify-end">
           <button
             type="button"
             onClick={handleAdd}
@@ -132,8 +183,17 @@ export function FarmersPage(): JSX.Element {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
                   <th className="px-2 py-2 text-left">
                     <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    <Text role="header">{t({ my: 'လိပ်စာ', en: 'Address' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    <Text role="header">{t({ my: 'ဖုန်းနံပါတ်', en: 'Phone' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
                     <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
@@ -141,18 +201,45 @@ export function FarmersPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((f) => (
+                {items.map((f, idx) => (
                   <tr key={f.id} className="border-b border-border last:border-b-0">
+                    <td className="w-10 px-2 py-1 text-right tabular-nums">
+                      <Text role="secondary">{items.length - idx}</Text>
+                    </td>
                     <td className="px-2 py-1">
                       {editingId === f.id ? (
                         <input
                           type="text"
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
+                          value={editingDraft.name}
+                          onChange={(e) => setEditingDraft((d) => ({ ...d, name: e.target.value }))}
                           className="w-full rounded border border-border bg-background px-2 py-1"
                         />
                       ) : (
                         <Text role="primary">{f.name}</Text>
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      {editingId === f.id ? (
+                        <input
+                          type="text"
+                          value={editingDraft.address}
+                          onChange={(e) => setEditingDraft((d) => ({ ...d, address: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-2 py-1"
+                        />
+                      ) : (
+                        <Text role="secondary">{f.address || '—'}</Text>
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      {editingId === f.id ? (
+                        <input
+                          type="text"
+                          value={editingDraft.phone}
+                          onChange={(e) => setEditingDraft((d) => ({ ...d, phone: e.target.value }))}
+                          className="w-full rounded border border-border bg-background px-2 py-1"
+                        />
+                      ) : (
+                        <Text role="secondary">{f.phone || '—'}</Text>
                       )}
                     </td>
                     <td className="px-2 py-1 text-right">
@@ -180,10 +267,7 @@ export function FarmersPage(): JSX.Element {
                         <div className="flex justify-end gap-2">
                           <button
                             type="button"
-                            onClick={() => {
-                              setEditingId(f.id)
-                              setEditingName(f.name)
-                            }}
+                            onClick={() => beginEdit(f)}
                             className={cn(
                               'rounded border border-border bg-surface px-2 py-0.5 text-xs',
                               'hover:bg-surface-hover',

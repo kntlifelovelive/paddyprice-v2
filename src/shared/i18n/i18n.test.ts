@@ -8,11 +8,11 @@ import {
 } from './i18n'
 
 describe('language defaults', () => {
-  it('defaults to Myanmar', () => {
-    expect(DEFAULT_LANGUAGE).toBe('my')
-    expect(normalizeLanguage(undefined)).toBe('my')
-    expect(normalizeLanguage('fr')).toBe('my')
-    expect(normalizeLanguage('en')).toBe('en')
+  it('defaults to English', () => {
+    expect(DEFAULT_LANGUAGE).toBe('en')
+    expect(normalizeLanguage(undefined)).toBe('en')
+    expect(normalizeLanguage('fr')).toBe('en')
+    expect(normalizeLanguage('my')).toBe('my')
     expect(isLanguage('my')).toBe(true)
     expect(isLanguage('en')).toBe(true)
     expect(isLanguage('th')).toBe(false)

@@ -16,12 +16,22 @@ import type { Database } from 'sql.js'
 import { resolveLbPerTin } from '@/domain/paddy/tins'
 import { resolveMoistureRates, type MoistureRates } from '@/domain/paddy/moisture'
 import { normalizeTheme } from '@/shared/theme'
+import { normalizeLanguage } from '@/shared/i18n'
 import { useSettingsStore } from '@/shared/state'
 import * as settingsDao from '@/infrastructure/db/dao/settings'
 import type { Settings, SettingsKey } from '@/types'
 
 const FONT_SIZES = ['small', 'normal', 'large', 'xlarge'] as const
 const LANGUAGES = ['my', 'en'] as const
+
+/**
+ * Step 11 §2 — default language resolution lives in `shared/i18n` (English).
+ * We use `normalizeLanguage` here so a fresh settings DB / a corrupt language
+ * row resolves to the documented default and the UI renders English.
+ */
+function resolveLanguage(raw: string | undefined): 'my' | 'en' {
+  return normalizeLanguage(LANGUAGES.includes(raw as 'my' | 'en') ? raw : '')
+}
 
 /** Parse the stored moisture-rates JSON defensively → resolved defaults. */
 function storedMoistureRates(db: Database): MoistureRates {
@@ -50,9 +60,7 @@ function loadSettings(db: Database): Settings {
     font_size: (FONT_SIZES as readonly string[]).includes(raw.font_size ?? '')
       ? (raw.font_size as Settings['font_size'])
       : 'normal',
-    language: (LANGUAGES as readonly string[]).includes(raw.language ?? '')
-      ? (raw.language as Settings['language'])
-      : 'my',
+    language: resolveLanguage(raw.language),
   }
 }
 

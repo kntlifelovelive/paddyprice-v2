@@ -41,7 +41,7 @@ import {
 import { settingsService } from '@/services/settings'
 import { formatMMK, formatNumber, formatTins, todayISO } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text, cn } from '@/shared/ui'
 
 interface BagDisplay {
   seq: number
@@ -113,6 +113,9 @@ export function NewPurchasePage(): JSX.Element {
   const [form, setForm] = useState<PurchaseFormState>(emptyForm)
   // Per-bag label override editor (Pattern 2).
   const [editingSeq, setEditingSeq] = useState<number | null>(null)
+  // Per-bag weight editor — the Action column's Edit icon edits ONLY the
+  // bag's pound value (never moisture, customer, or other fields).
+  const [weightEditSeq, setWeightEditSeq] = useState<number | null>(null)
 
   // Load dropdowns once the DB is ready.
   useEffect(() => {
@@ -209,6 +212,10 @@ export function NewPurchasePage(): JSX.Element {
       const db = getDatabase()
       const { totals } = addWeight(db, purchaseId, trimmed, bagMoisture)
       setWeightInput('')
+      // Reset per-bag moisture override back to "Use Pattern 1" so the next
+      // bag is built from the purchase-level default unless the user
+      // explicitly changes it again. (See Step 10 §16 — repeated entry UX.)
+      setBagMoistureInput(null)
       const record = getPurchaseRecord(db, purchaseId)
       setForm((f) => ({
         ...f,
@@ -463,34 +470,10 @@ export function NewPurchasePage(): JSX.Element {
         {t({ my: 'အိတ်ထည့်ခြင်း', en: 'Bag Entry' })}
       </Text>
 
-      <section className="rounded-lg border border-border bg-surface p-3">
-        <Text role="header" className="text-sm font-semibold">
-          {t({ my: 'Pattern 1 အစိုဓာတ်', en: 'Pattern 1 (Purchase-Level) Moisture' })}
-        </Text>
-        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-          <label className="flex items-center gap-1">
-            <input
-              type="radio"
-              name="pattern1"
-              checked={form.defaultMoisture == null}
-              onChange={() => handleSetHeader('defaultMoisture', null)}
-            />
-            <Text role="primary">{t({ my: 'မရှိ', en: 'None' })}</Text>
-          </label>
-          {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
-            <label key={label} className="flex items-center gap-1">
-              <input
-                type="radio"
-                name="pattern1"
-                checked={form.defaultMoisture === label}
-                onChange={() => handleSetHeader('defaultMoisture', label)}
-              />
-              <Text role="primary">{label}</Text>
-            </label>
-          ))}
-        </div>
-      </section>
-
+      {/* Pattern 1 (purchase-level) default moisture UI removed — per-bag
+          moisture label selection in the bag table is the single source of
+          truth. The defaultMoisture state remains: it still seeds new bag
+          rows from the per-farmer/per-type config (PROJECT_SPEC §3.4). */}
       <section className="rounded-lg border border-border bg-surface p-3">
         <Text role="header" className="text-sm font-semibold">
           {t({ my: 'အိတ်အသစ်ထည့်ရန်', en: 'Add Bag' })}
@@ -521,26 +504,6 @@ export function NewPurchasePage(): JSX.Element {
               }}
               className="w-32 rounded border border-border bg-background px-2 py-1.5"
             />
-          </label>
-          <label className="flex flex-col gap-1">
-            <Text role="secondary">{t({ my: 'Pattern 2 (ဤအိတ်)', en: 'Pattern 2 (this bag)' })}</Text>
-            <select
-              value={bagMoisture ?? ''}
-              onChange={(e) =>
-                setBagMoistureInput(
-                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
-                )
-              }
-              className="rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">{t({ my: 'Pattern 1 ကို သုံးမည်', en: 'Use Pattern 1' })}</option>
-              <option value="0">{t({ my: 'မရှိ', en: 'None' })}</option>
-              {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
           </label>
           <button
             type="button"
@@ -584,13 +547,13 @@ export function NewPurchasePage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">#</Text>
+                    <Text role="header">{t({ my: 'အိတ်', en: 'Bag' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
                     <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစိုဓာတ်', en: 'Moisture' })}</Text>
+                    <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture label' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
                     <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
@@ -604,7 +567,13 @@ export function NewPurchasePage(): JSX.Element {
                       <Text role="secondary">{bag.seq}</Text>
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums">
-                      <BagWeightCell bag={bag} onCommit={(raw) => handleEditWeight(bag.seq, raw)} />
+                      <BagWeightCell
+                        bag={bag}
+                        editing={weightEditSeq === bag.seq}
+                        onStartEdit={() => setWeightEditSeq(bag.seq)}
+                        onDone={() => setWeightEditSeq(null)}
+                        onCommit={(raw) => handleEditWeight(bag.seq, raw)}
+                      />
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums">
                       {editingSeq === bag.seq ? (
@@ -641,13 +610,26 @@ export function NewPurchasePage(): JSX.Element {
                       )}
                     </td>
                     <td className="px-2 py-1 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRemove(bag.seq)}
-                        className="rounded border border-border bg-surface px-2 py-0.5 text-xs hover:bg-surface-hover"
-                      >
-                        {t({ my: 'ဖယ်ရှားမည်', en: 'Remove' })}
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setWeightEditSeq(bag.seq)}
+                          aria-label={t({ my: 'အိတ်အလေးချိန် ပြင်ရန်', en: 'Edit bag weight' })}
+                          title={t({ my: 'အိတ်အလေးချိန် ပြင်ရန်', en: 'Edit bag weight' })}
+                          className="rounded p-1.5 text-content-secondary hover:bg-surface-hover hover:text-accent"
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(bag.seq)}
+                          aria-label={t({ my: 'အိတ် ဖယ်ရှားရန်', en: 'Remove bag' })}
+                          title={t({ my: 'အိတ် ဖယ်ရှားရန်', en: 'Remove bag' })}
+                          className="rounded p-1.5 text-content-secondary hover:bg-surface-hover hover:text-danger"
+                        >
+                          <DeleteIcon />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -657,43 +639,71 @@ export function NewPurchasePage(): JSX.Element {
         )}
       </section>
 
-      <section className="grid gap-3 rounded-lg border border-border bg-surface p-3 sm:grid-cols-2">
-        <Text as="h2" role="header" className="text-sm font-semibold sm:col-span-2">
+      {/* Summary — reference-style card grid. Net Pound + Amount highlighted.
+          Values come from the existing purchase totals logic (no new math). */}
+      <section className="rounded-lg border border-border bg-surface p-3">
+        <Text as="h2" role="header" className="text-sm font-semibold">
           {t({ my: 'စုစုပေါင်း', en: 'Totals' })}
         </Text>
-        <TotalsRow
-          label={t({ my: 'အိတ်', en: 'Bags' })}
-          value={formatNumber(form.totalBags)}
-        />
-        <TotalsRow
-          label={t({ my: 'စုစုပေါင်းပေါင် (Gross)', en: 'Gross Pound' })}
-          value={formatNumber(form.grossPound)}
-        />
-        <TotalsRow
-          label={t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Moisture Loss' })}
-          value={`${formatNumber(form.moistureLoss)} ${t({ my: 'ပေါင်', en: 'lb' })}`}
-        />
-        <TotalsRow
-          label={t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}
-          value={formatNumber(form.netPound)}
-        />
-        <TotalsRow
-          label={t({ my: 'တင်း + ပိုပေါင်', en: 'Tin + Extra Lb' })}
-          value={`${formatTins(tinBreakdown.tins)} ${t({ my: 'တင်း +', en: 'Tin +' })} ${formatNumber(
-            tinBreakdown.extraLb,
-          )} ${t({ my: 'ပေါင်', en: 'lb' })}`}
-        />
-        <TotalsRow label={t({ my: 'ငွေ', en: 'Amount' })} value={formatMMK(form.totalAmount)} />
+        <dl className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-3">
+          <SummaryCard
+            label={t({ my: 'အိတ်', en: 'Bags' })}
+            value={formatNumber(form.totalBags)}
+          />
+          <SummaryCard
+            label={t({ my: 'စုစုပေါင်းပေါင် (Gross)', en: 'Gross Pound' })}
+            value={formatNumber(form.grossPound)}
+          />
+          <SummaryCard
+            label={t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Moisture Loss' })}
+            value={`${formatNumber(form.moistureLoss)} ${t({ my: 'ပေါင်', en: 'lb' })}`}
+          />
+          <SummaryCard
+            highlight
+            label={t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}
+            value={formatNumber(form.netPound)}
+          />
+          <SummaryCard
+            label={t({ my: 'တင်း + ပိုပေါင်', en: 'Tin + Extra Lb' })}
+            value={`${formatTins(tinBreakdown.tins)} ${t({ my: 'တင်း +', en: 'Tin +' })} ${formatNumber(
+              tinBreakdown.extraLb,
+            )} ${t({ my: 'ပေါင်', en: 'lb' })}`}
+          />
+          <SummaryCard
+            highlight
+            label={t({ my: 'ငွေ', en: 'Amount' })}
+            value={formatMMK(form.totalAmount)}
+          />
+        </dl>
       </section>
     </div>
   )
 }
 
-function TotalsRow({ label, value }: { label: string; value: string }): JSX.Element {
+/** Reference-style summary card: muted uppercase label over a bold value.
+ *  `highlight` marks the business-critical figures (Net Pound, Amount). */
+function SummaryCard({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string
+  value: string
+  highlight?: boolean
+}): JSX.Element {
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <Text role="secondary">{label}</Text>
-      <Text role="primary" className="tabular-nums">
+    <div
+      className={`rounded-lg border p-2.5 ${
+        highlight ? 'border-accent bg-background' : 'border-border bg-background'
+      }`}
+    >
+      <Text role="muted" className="text-xs font-medium uppercase tracking-wide">
+        {label}
+      </Text>
+      <Text
+        role="primary"
+        className={`mt-1 block font-bold tabular-nums ${highlight ? 'text-accent' : ''}`}
+      >
         {value}
       </Text>
     </div>
@@ -702,11 +712,20 @@ function TotalsRow({ label, value }: { label: string; value: string }): JSX.Elem
 
 interface BagWeightCellProps {
   bag: BagDisplay
+  /** Controlled by the Action column's Edit icon (edits ONLY this bag's pound). */
+  editing: boolean
+  onStartEdit(): void
+  onDone(): void
   onCommit(raw: string): void
 }
 
-function BagWeightCell({ bag, onCommit }: BagWeightCellProps): JSX.Element {
-  const [editing, setEditing] = useState(false)
+function BagWeightCell({
+  bag,
+  editing,
+  onStartEdit,
+  onDone,
+  onCommit,
+}: BagWeightCellProps): JSX.Element {
   const [draft, setDraft] = useState(String(bag.weight_lb))
   useEffect(() => {
     setDraft(String(bag.weight_lb))
@@ -715,7 +734,7 @@ function BagWeightCell({ bag, onCommit }: BagWeightCellProps): JSX.Element {
     return (
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={onStartEdit}
         className="rounded px-1.5 py-0.5 text-xs hover:bg-surface-hover"
       >
         <Text role="primary">{formatNumber(bag.weight_lb)}</Text>
@@ -730,12 +749,13 @@ function BagWeightCell({ bag, onCommit }: BagWeightCellProps): JSX.Element {
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         onCommit(draft)
-        setEditing(false)
+        onDone()
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
+          e.preventDefault()
           onCommit(draft)
-          setEditing(false)
+          onDone()
         }
       }}
       autoFocus

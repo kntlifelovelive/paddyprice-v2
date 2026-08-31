@@ -7,6 +7,7 @@ import {
   type MoistureRates,
 } from '@/domain/paddy/moisture';
 import type { BagRow } from '@/domain/purchase/totals';
+import { decomposeDeductionPound } from '@/domain/paddy/tinBreakdown';
 
 /**
  * Profit & Loss — docs/DOMAIN_RULES.md §8.
@@ -32,6 +33,8 @@ export interface PnlSnapshotRow {
   moisture_loss: number;
   /** §8 — stored net pound. */
   net_pound: number;
+  /** §5.4 — stored price snapshot (MMK for 1 tin). */
+  price_per_tin: number;
   /** §8 — stored total amount (MMK). */
   total_amount: number;
 }
@@ -138,4 +141,27 @@ export function computeMoistureDeductionBreakdown(
   ).map((label) => ({ label, deduction_lb: byLabel.get(label)! }));
   const total_deduction_lb = labels.reduce((sum, row) => sum + row.deduction_lb, 0);
   return { labels, total_deduction_lb };
+}
+
+/**
+ * §8.1 — the money value of a moisture deduction (MMK).
+ *
+ * The P&L Moisture Deduction table's Amount column values the customer's
+ * DEDUCTION pound — expressed through its Tin + Extra Lb decomposition — at
+ * the purchase's stored tin price. It is NOT the customer's purchase amount:
+ *
+ *   amount = tins × pricePerTin + (extraLb / lbPerTin) × pricePerTin
+ *
+ * (equal to `(deductionLb / lbPerTin) × pricePerTin` for the exact
+ * decomposition). Non-finite / non-positive inputs yield 0.
+ */
+export function computeDeductionAmount(
+  deductionLb: number,
+  pricePerTin: number,
+  lbPerTin: number,
+): number {
+  if (!Number.isFinite(pricePerTin) || pricePerTin <= 0) return 0;
+  if (!Number.isFinite(lbPerTin) || lbPerTin <= 0) return 0;
+  const { tins, extraLb } = decomposeDeductionPound(deductionLb, lbPerTin);
+  return tins * pricePerTin + (extraLb / lbPerTin) * pricePerTin;
 }

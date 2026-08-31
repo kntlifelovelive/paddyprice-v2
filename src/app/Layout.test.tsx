@@ -47,9 +47,9 @@ describe('Layout (top-bar navigation)', () => {
     useSettingsStore.setState({ settings: null, loaded: false })
   })
 
-  it('shows the confirmed reference navigation labels in Myanmar by default', () => {
+  it('shows the confirmed reference navigation labels in English by default', () => {
     const html = renderHome()
-    for (const label of ['ပင်မ', 'အသစ်ဝယ်', 'မှတ်တမ်း', 'အစိုဓာတ်', 'အမြတ်/အရှုံး', 'လယ်သမား', 'စပါးအမျိုးအစား', 'စျေးနှုန်း', 'ဆက်တင်']) {
+    for (const label of ['Home', 'New Purchase', 'History', 'Moisture', 'P&amp;L', 'Customers', 'Paddy Types', 'Prices', 'Settings']) {
       expect(html).toContain(label)
     }
   })
@@ -86,12 +86,12 @@ describe('useT (i18n shell wiring)', () => {
     useSettingsStore.setState({ settings: null, loaded: false })
   })
 
-  it('defaults to Myanmar when no language is stored', () => {
+  it('defaults to English when no language is stored', () => {
     function Probe() {
       const t = useT()
       return <div>{t({ my: 'ပင်မ', en: 'Home' })}</div>
     }
-    expect(renderToString(<Probe />)).toContain('ပင်မ')
+    expect(renderToString(<Probe />)).toContain('Home')
   })
 
   // Zustand v4: renderToString ignores store mutations; use live client mount.

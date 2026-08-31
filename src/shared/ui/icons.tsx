@@ -3,7 +3,7 @@
  * All icons use currentColor (stroke/fill) so they inherit theme colors.
  * No external icon library; no emoji; no raster images.
  */
-interface IconProps {
+export interface IconProps {
   /** Tailwind size class, e.g. "h-4 w-4". Defaults to "h-4 w-4". */
   size?: string
   className?: string

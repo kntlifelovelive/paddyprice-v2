@@ -158,6 +158,7 @@ export function updatePurchaseTotals(
       totals.gross_pound, totals.moisture_loss, totals.net_pound, now, id,
     ],
   )
+  scheduleSave()
 }
 
 /** Persist the finalize stamp (§7) — flag plus the generated voucher path. */
@@ -174,16 +175,19 @@ export function setPurchaseFinalized(
     now,
     id,
   ])
+  scheduleSave()
 }
 
 /** Append a bag row; `seq` = current max + 1 (contiguous numbering, §2.2). */
 export function addBagRow(db: Database, purchaseId: number, bag: BagRow, recordedAt: string = new Date().toISOString()): number {
   const maxSeq = Number(queryScalar(db, 'SELECT COALESCE(MAX(seq), 0) FROM bags WHERE purchase_id = ?', [purchaseId]) ?? 0)
-  return insert(
+  const id = insert(
     db,
     'INSERT INTO bags (purchase_id, seq, weight_lb, moisture_label, recorded_at) VALUES (?, ?, ?, ?, ?)',
     [purchaseId, maxSeq + 1, bag.weight_lb, bag.moisture_label, recordedAt],
   )
+  scheduleSave()
+  return id
 }
 
 /** Delete one bag row, then re-number the rest to contiguous 1..n (§2.2). */

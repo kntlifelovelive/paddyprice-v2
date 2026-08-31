@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { MoistureLabelValue } from '@/domain/paddy/moisture';
-import { buildPnlRow, summarizePnl } from './report';
+import { buildPnlRow, summarizePnl, computeDeductionAmount } from './report';
 
 function snapshot(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -13,6 +13,7 @@ function snapshot(overrides: Partial<Record<string, unknown>> = {}) {
     moisture_label: null as MoistureLabelValue,
     moisture_loss: 0,
     net_pound: 100,
+    price_per_tin: 40_000,
     total_amount: 2_000,
     ...overrides,
   };
@@ -66,5 +67,31 @@ describe('summarizePnl (§8)', () => {
     expect(summary.total_moisture_loss).toBe(0);
     expect(summary.total_net_pound).toBe(0);
     expect(summary.total_amount).toBe(0);
+  });
+});
+
+describe('computeDeductionAmount (§8.1)', () => {
+  it('values the deduction tin+extra at the stored tin price', () => {
+    // 98.75 lb @ 50 lb/tin → 1 tin + 48.75 lb extra → 40,000 + 39,000 = 79,000
+    expect(computeDeductionAmount(98.75, 40_000, 50)).toBeCloseTo(79_000, 6);
+    // 100 lb → 2 tins exactly → 80,000
+    expect(computeDeductionAmount(100, 40_000, 50)).toBeCloseTo(80_000, 6);
+    // 21 lb → 0 tins + 21 lb extra → 21/50 × 40,000 = 16,800
+    expect(computeDeductionAmount(21, 40_000, 50)).toBeCloseTo(16_800, 6);
+    // zero deduction → zero amount
+    expect(computeDeductionAmount(0, 40_000, 50)).toBe(0);
+  });
+
+  it('honours a non-50 lb-per-tin configuration', () => {
+    // 46 lb/tin config: 69 lb → 1 tin + 23 lb extra → 30,000 + 15,000 = 45,000
+    expect(computeDeductionAmount(69, 30_000, 46)).toBeCloseTo(45_000, 6);
+  });
+
+  it('yields 0 for invalid price / lb-per-tin inputs', () => {
+    expect(computeDeductionAmount(21, 0, 50)).toBe(0);
+    expect(computeDeductionAmount(21, -1, 50)).toBe(0);
+    expect(computeDeductionAmount(21, 40_000, 0)).toBe(0);
+    expect(computeDeductionAmount(21, Number.NaN, 50)).toBe(0);
+    expect(computeDeductionAmount(21, 40_000, Number.POSITIVE_INFINITY)).toBe(0);
   });
 });

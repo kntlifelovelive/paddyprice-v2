@@ -89,10 +89,13 @@ interface GroupRowProps {
   lbPerTin: number
 }
 
-function GroupRow({ group, lbPerTin }: GroupRowProps): JSX.Element {
+function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number }): JSX.Element {
   const { tins, extraLb } = decomposeNetPound(group.net_pound, lbPerTin)
   return (
     <tr className="border-b border-border last:border-b-0">
+      <td className="w-10 px-2 py-2 text-right tabular-nums">
+        <Text role="secondary">{rowNo}</Text>
+      </td>
       <td className="px-2 py-2 text-left">
         <Text role="primary">{group.farmer_name}</Text>
       </td>
@@ -206,7 +209,7 @@ export function DashboardPage(): JSX.Element {
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
           <Text as="h2" role="header" className="text-sm font-semibold">
-            {t({ my: 'လယ်သမား × စပါးအမျိုးအစား × ဈေးနှုန်း', en: 'Farmer × Paddy Type × Price' })}
+            {t({ my: 'အမည် × စပါးအမျိုးအစား × ဈေးနှုန်း', en: 'Name × Paddy Type × Price' })}
           </Text>
         </div>
         {data.groups.length === 0 ? (
@@ -218,8 +221,11 @@ export function DashboardPage(): JSX.Element {
             <table className="w-full min-w-[720px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
+                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
                     <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
@@ -231,7 +237,7 @@ export function DashboardPage(): JSX.Element {
                     <Text role="header">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}</Text>
+                    <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
                     <Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text>
@@ -245,11 +251,12 @@ export function DashboardPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {data.groups.map((g) => (
+                {data.groups.map((g, idx) => (
                   <GroupRow
                     key={`${g.farmer_id}|${g.rice_type_id}|${g.price_100_tin}`}
                     group={g}
                     lbPerTin={lbPerTin}
+                    rowNo={data.groups.length - idx}
                   />
                 ))}
               </tbody>

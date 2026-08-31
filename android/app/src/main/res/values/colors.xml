@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paddy green palette — sourced from icon_source.jpg dominant colour #708F4D -->
+    <color name="colorPrimary">#708F4D</color>
+    <color name="colorPrimaryDark">#5A7339</color>
+    <color name="colorAccent">#9BBF4D</color>
+    <color name="ic_launcher_background">#708F4D</color>
+</resources>

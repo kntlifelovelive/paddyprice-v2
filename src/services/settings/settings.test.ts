@@ -24,7 +24,7 @@ describe('settingsService (load/update + single-writer store sync)', () => {
     expect(s.theme).toBe('tokyo-night')
     expect(s.pdf_dir).toBe('PSO/pdf')
     expect(s.font_size).toBe('normal')
-    expect(s.language).toBe('my')
+    expect(s.language).toBe('en') // Step 11 §2: default language is English
     expect(s.moisture_rates).toEqual({ 17: 1, 18: 2, 19: 3, 20: 4 })
     expect(useSettingsStore.getState().loaded).toBe(true)
     expect(useSettingsStore.getState().settings).toEqual(s)

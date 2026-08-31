@@ -12,3 +12,12 @@ coverage/
 
 # OS / editor noise
 .DS_Store
+
+# Android build output (regenerated via gradle)
+android/.gradle/
+android/build/
+android/app/build/
+android/app/release/
+android/captures/
+android/local.properties
+android/.idea/

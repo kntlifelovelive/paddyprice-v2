@@ -159,7 +159,7 @@ export function HistoryFarmerPage(): JSX.Element {
       <section className="grid gap-2 rounded-lg border border-border bg-surface p-3 text-sm sm:grid-cols-2">
         <SumRow label={t({ my: 'အရေအတွက်', en: 'Purchases' })} value={formatNumber(data.purchaseCount)} />
         <SumRow label={t({ my: 'အိတ်', en: 'Bags' })} value={formatNumber(data.totalBags)} />
-        <SumRow label={t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })} value={formatNumber(data.totalNetPound)} />
+        <SumRow label={t({ my: 'ပေါင်', en: 'Pound' })} value={formatNumber(data.totalNetPound)} />
         <SumRow label={t({ my: 'ငွေ', en: 'Amount' })} value={formatMMK(data.totalAmount)} />
       </section>
 
@@ -172,7 +172,7 @@ export function HistoryFarmerPage(): JSX.Element {
                 <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</Text></th>
                 <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text></th>
                 <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ပေါင် (အသစ်)', en: 'Net Pound' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text></th>
                 <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text></th>
                 <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text></th>
                 <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text></th>

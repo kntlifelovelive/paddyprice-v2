@@ -16,7 +16,7 @@ describe('settings DAO (CRUD + moisture rates)', () => {
   it('seeds the documented default settings on first run', async () => {
     const db = await createTestDatabase()
     expect(getSetting(db, 'company_name')).toBe('Paddy')
-    expect(getSetting(db, 'language')).toBe('my')
+    expect(getSetting(db, 'language')).toBe('en')
     expect(getSetting(db, 'font_size')).toBe('normal')
     expect(getSetting(db, 'theme')).toBe('tokyo-night')
     expect(getSetting(db, 'pdf_dir')).toBe('PSO/pdf')

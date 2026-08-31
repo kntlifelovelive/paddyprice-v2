@@ -175,12 +175,26 @@ export function RicePricesPage(): JSX.Element {
             <Text role="secondary">{t({ my: 'ဈေးနှုန်း (A/B)', en: 'Price (A/B)' })}</Text>
             <input
               type="text"
-              inputMode="numeric"
+              inputMode="text"
+              autoComplete="off"
+              spellCheck={false}
               placeholder="18/50000"
               value={priceShorthand}
               onChange={(e) => setPriceShorthand(e.target.value)}
-              className="rounded border border-border bg-background px-2 py-1.5"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleAdd()
+                }
+              }}
+              className="rounded border border-border bg-background px-2 py-1.5 tabular-nums"
             />
+            <Text role="muted" className="text-xs">
+              {t({
+                my: 'ဥပမာ - 18/50000 ⇒ 100 တင်းလျှင် 1,850,000 ကျပ်',
+                en: 'Example: 18/50000 = 1,850,000 MMK per 100 tin',
+              })}
+            </Text>
           </label>
         </div>
         <button
@@ -213,6 +227,9 @@ export function RicePricesPage(): JSX.Element {
             <table className="w-full min-w-[640px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
                   <th className="px-2 py-2 text-left">
                     <Text role="header">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
                   </th>
@@ -231,8 +248,11 @@ export function RicePricesPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((p) => (
+                {items.map((p, idx) => (
                   <tr key={p.id} className="border-b border-border last:border-b-0">
+                    <td className="w-10 px-2 py-2 text-right tabular-nums">
+                      <Text role="secondary">{items.length - idx}</Text>
+                    </td>
                     <td className="px-2 py-2">
                       <Text role="primary">{p.date}</Text>
                     </td>
@@ -243,10 +263,18 @@ export function RicePricesPage(): JSX.Element {
                       {editingId === p.id ? (
                         <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode="text"
+                          autoComplete="off"
+                          spellCheck={false}
                           value={editingShorthand}
                           onChange={(e) => setEditingShorthand(e.target.value)}
-                          className="w-28 rounded border border-border bg-background px-1 py-0.5 text-right text-xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              handleSaveEdit(p.id)
+                            }
+                          }}
+                          className="w-28 rounded border border-border bg-background px-1 py-0.5 text-right text-xs tabular-nums"
                         />
                       ) : (
                         <Text role="primary">{formatMMK(p.price_100_tin)}</Text>

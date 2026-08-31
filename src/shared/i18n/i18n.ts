@@ -13,8 +13,13 @@
 
 export type Language = 'my' | 'en'
 
-/** Myanmar is the documented default language. */
-export const DEFAULT_LANGUAGE: Language = 'my'
+/**
+ * English is the default application language for fresh installs.
+ * (Step 11 §2 — was Myanmar previously; switched to English. Myanmar remains
+ * a fully supported, selectable language; bilingual `{ my, en }` pairs and
+ * `useT()` are unchanged.)
+ */
+export const DEFAULT_LANGUAGE: Language = 'en'
 
 /** A complete bilingual pair. Both sides must always be provided. */
 export interface BilingualPair {

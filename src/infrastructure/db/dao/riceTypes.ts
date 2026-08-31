@@ -4,6 +4,7 @@
 import type { Database } from 'sql.js'
 import type { RiceType } from '@/types'
 import { insert, queryAll, queryOne, run, type Row } from './sql'
+import { scheduleSave } from '../persistence'
 
 const COLS = 'id, name, description, active, created_at'
 
@@ -36,6 +37,7 @@ export function createRiceType(db: Database, input: RiceTypeInput, now: string =
     'INSERT INTO rice_types (name, description, active, created_at) VALUES (?, ?, ?, ?)',
     [input.name, input.description ?? '', input.active === undefined ? 1 : input.active, now],
   )
+  scheduleSave()
   return getRiceType(db, id) as RiceType
 }
 
@@ -71,11 +73,14 @@ export function updateRiceType(
   if (sets.length > 0) {
     params.push(id)
     run(db, `UPDATE rice_types SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSave()
   }
   return getRiceType(db, id)
 }
 
 export function deleteRiceType(db: Database, id: number): boolean {
   run(db, 'DELETE FROM rice_types WHERE id = ?', [id])
-  return db.getRowsModified() > 0
+  const deleted = db.getRowsModified() > 0
+  if (deleted) scheduleSave()
+  return deleted
 }

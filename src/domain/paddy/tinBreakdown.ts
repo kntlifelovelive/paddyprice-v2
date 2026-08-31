@@ -32,3 +32,37 @@ export function decomposeNetPound(netLb: number, lbPerTin: number): TinBreakdown
   const extraLb = netLb - tins * lbPerTin;
   return { tins, extraLb };
 }
+
+/**
+ * §8.1 — Deduction-pound → Tin + Extra Lb decomposition (pure domain).
+ *
+ * The P&L Moisture Deduction table expresses each customer's DEDUCTION pound
+ * as whole tins plus the remaining pounds. This decomposes the deduction lb
+ * only — it never reads the net pound and never feeds back into any purchase
+ * calculation (net-pound presentation is `decomposeNetPound`'s concern).
+ *
+ * No intermediate rounding: `tins` is the whole-tin floor of the exact tin
+ * value; `extraLb` is the exact remainder (`deductionLb - tins * lbPerTin`).
+ */
+
+/**
+ * Decompose a deduction pound value into whole tins + extra pounds.
+ * Non-finite or non-positive deduction lb yields `{ tins: 0, extraLb: 0 }`.
+ */
+export function decomposeDeductionPound(
+  deductionLb: number,
+  lbPerTin: number,
+): TinBreakdown {
+  if (
+    !Number.isFinite(deductionLb) ||
+    deductionLb <= 0 ||
+    !Number.isFinite(lbPerTin) ||
+    lbPerTin <= 0
+  ) {
+    return { tins: 0, extraLb: 0 };
+  }
+  const exactTins = poundsToTins(deductionLb, lbPerTin);
+  const tins = Math.floor(exactTins);
+  const extraLb = deductionLb - tins * lbPerTin;
+  return { tins, extraLb };
+}

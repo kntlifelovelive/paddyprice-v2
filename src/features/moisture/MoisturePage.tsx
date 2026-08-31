@@ -191,6 +191,9 @@ export function MoisturePage(): JSX.Element {
             <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
                   <th className="px-2 py-2 text-left">
                     <Text role="header">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
                   </th>
@@ -209,8 +212,11 @@ export function MoisturePage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
+                {rows.map((row, idx) => (
                   <tr key={row.id} className="border-b border-border last:border-b-0">
+                    <td className="w-10 px-2 py-2 text-right tabular-nums">
+                      <Text role="secondary">{rows.length - idx}</Text>
+                    </td>
                     <td className="px-2 py-2">
                       <Text role="primary">{row.farmer_name}</Text>
                     </td>

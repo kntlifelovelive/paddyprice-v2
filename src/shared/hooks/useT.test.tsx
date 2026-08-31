@@ -24,12 +24,12 @@ describe('useT (shared i18n hook)', () => {
     useSettingsStore.setState({ settings: null, loaded: false })
   })
 
-  it('defaults to Myanmar (the documented default language)', () => {
+  it('defaults to English (the documented default language)', () => {
     function Probe() {
       const t = useT()
       return <div>{t({ my: 'ပင်မ', en: 'Home' })}</div>
     }
-    expect(renderToString(<Probe />)).toContain('ပင်မ')
+    expect(renderToString(<Probe />)).toContain('Home')
   })
 
   // Zustand v4: renderToString ignores store mutations; use a live client
@@ -55,7 +55,7 @@ describe('useT (shared i18n hook)', () => {
     }
     const r1 = await rendermount(<Probe />)
     try {
-      expect(r1.html()).toContain('ပင်မ')
+      expect(r1.html()).toContain('Home')
     } finally {
       await r1.unmount()
     }

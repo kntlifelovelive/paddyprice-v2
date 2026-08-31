@@ -128,6 +128,7 @@ export function getPnlReport(db: Database, filter: PurchaseFilter = {}): PnlRepo
         moisture_label: s.moisture_label,
         moisture_loss: s.moisture_loss,
         net_pound: s.net_pound,
+        price_per_tin: s.price_per_tin,
         total_amount: s.total_amount,
       },
       bags,

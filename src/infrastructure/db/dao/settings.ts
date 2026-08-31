@@ -6,6 +6,7 @@
 import type { Database } from 'sql.js'
 import type { MoistureRates } from '@/domain/paddy/moisture'
 import { queryAll, queryOne, run } from './sql'
+import { scheduleSave } from '../persistence'
 
 export function getSetting(db: Database, key: string): string | null {
   const row = queryOne(db, 'SELECT value FROM settings WHERE key = ?', [key])
@@ -26,11 +27,14 @@ export function setSetting(db: Database, key: string, value: string): void {
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
     [key, value],
   )
+  scheduleSave()
 }
 
 export function deleteSetting(db: Database, key: string): boolean {
   run(db, 'DELETE FROM settings WHERE key = ?', [key])
-  return db.getRowsModified() > 0
+  const deleted = db.getRowsModified() > 0
+  if (deleted) scheduleSave()
+  return deleted
 }
 
 /** The configured moisture deduction rates, or null when not yet stored. */

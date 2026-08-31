@@ -6,6 +6,7 @@ import type { Database } from 'sql.js'
 import type { MoistureConfig } from '@/types'
 import type { MoistureLabelValue } from '@/domain/paddy/moisture'
 import { queryAll, queryOne, run, type Row } from './sql'
+import { scheduleSave } from '../persistence'
 
 const SELECT = `
   SELECT m.id, m.farmer_id, m.rice_type_id, m.status, m.label, m.created_at, m.updated_at,
@@ -45,6 +46,7 @@ export function setMoistureConfig(db: Database, input: MoistureConfigInput, now:
        status = excluded.status, label = excluded.label, updated_at = excluded.updated_at`,
     [input.farmer_id, input.rice_type_id, input.status, input.label, now, now],
   )
+  scheduleSave()
   return getMoistureConfig(db, input.farmer_id, input.rice_type_id) as MoistureConfig
 }
 
@@ -59,5 +61,7 @@ export function listMoistureConfigs(db: Database): MoistureConfig[] {
 
 export function deleteMoistureConfig(db: Database, id: number): boolean {
   run(db, 'DELETE FROM moisture_configs WHERE id = ?', [id])
-  return db.getRowsModified() > 0
+  const deleted = db.getRowsModified() > 0
+  if (deleted) scheduleSave()
+  return deleted
 }

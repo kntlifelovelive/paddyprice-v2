@@ -4,6 +4,7 @@
 import type { Database } from 'sql.js'
 import type { Farmer } from '@/types'
 import { insert, queryAll, queryOne, run, type Row } from './sql'
+import { scheduleSave } from '../persistence'
 
 const COLS = 'id, name, address, phone, created_at, updated_at'
 
@@ -36,6 +37,7 @@ export function createFarmer(db: Database, input: FarmerInput, now: string = new
     'INSERT INTO farmers (name, address, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
     [input.name, input.address ?? '', input.phone ?? '', now, now],
   )
+  scheduleSave()
   return getFarmer(db, id) as Farmer
 }
 
@@ -72,6 +74,7 @@ export function updateFarmer(
     sets.push('updated_at = ?')
     params.push(now, id)
     run(db, `UPDATE farmers SET ${sets.join(', ')} WHERE id = ?`, params)
+    scheduleSave()
   }
   return getFarmer(db, id)
 }
@@ -79,5 +82,7 @@ export function updateFarmer(
 /** Deletes the farmer; their purchases/bags go too (FK ON DELETE CASCADE). */
 export function deleteFarmer(db: Database, id: number): boolean {
   run(db, 'DELETE FROM farmers WHERE id = ?', [id])
-  return db.getRowsModified() > 0
+  const deleted = db.getRowsModified() > 0
+  if (deleted) scheduleSave()
+  return deleted
 }
