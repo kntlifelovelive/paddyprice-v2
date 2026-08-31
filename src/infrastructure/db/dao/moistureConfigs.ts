@@ -36,15 +36,18 @@ export interface MoistureConfigInput {
   label: MoistureLabelValue
 }
 
-/** Upsert the configuration for one (farmer, rice type) pair. */
+/** Upsert the configuration for one (farmer, rice type) pair.
+ *  Reference behavior: a config that is not 'active' stores no label — only
+ *  an ACTIVE config can carry the Pattern 1 default label. */
 export function setMoistureConfig(db: Database, input: MoistureConfigInput, now: string = new Date().toISOString()): MoistureConfig {
+  const label = input.status === 'active' ? input.label : null
   run(
     db,
     `INSERT INTO moisture_configs (farmer_id, rice_type_id, status, label, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(farmer_id, rice_type_id) DO UPDATE SET
        status = excluded.status, label = excluded.label, updated_at = excluded.updated_at`,
-    [input.farmer_id, input.rice_type_id, input.status, input.label, now, now],
+    [input.farmer_id, input.rice_type_id, input.status, label, now, now],
   )
   scheduleSave()
   return getMoistureConfig(db, input.farmer_id, input.rice_type_id) as MoistureConfig
@@ -53,6 +56,16 @@ export function setMoistureConfig(db: Database, input: MoistureConfigInput, now:
 export function getMoistureConfig(db: Database, farmerId: number, riceTypeId: number): MoistureConfig | null {
   const row = queryOne(db, `${SELECT} WHERE m.farmer_id = ? AND m.rice_type_id = ?`, [farmerId, riceTypeId])
   return row ? mapConfig(row) : null
+}
+
+/**
+ * Pattern 1 default for New Purchase (reference `suggestedMoistureLabel`):
+ * the ACTIVE config's label for (farmer, rice type), else null. A config
+ * whose status is not 'active' is never suggested.
+ */
+export function suggestedMoistureLabel(db: Database, farmerId: number, riceTypeId: number): MoistureLabelValue {
+  const cfg = getMoistureConfig(db, farmerId, riceTypeId)
+  return cfg && cfg.status === 'active' ? cfg.label : null
 }
 
 export function listMoistureConfigs(db: Database): MoistureConfig[] {

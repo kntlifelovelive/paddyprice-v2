@@ -17,6 +17,7 @@ import {
   removeBag,
   setBagMoisture,
   setBagWeight,
+  setPurchaseMoisture,
   undoLast,
   type PurchaseServiceErrorCode,
 } from './service'
@@ -207,6 +208,76 @@ it('applies the moisture deduction label when adding a weight', async () => {
     expect(undoLast(db, id)).toBeNull()
   })
 
+  it('Pattern 1: every new bag inherits the purchase-level label', async () => {
+    const db = await createTestDatabase()
+    const farmer = createFarmer(db, { name: 'Ko Aung' })
+    const type = createRiceType(db, { name: 'Emata' })
+    createRicePrice(db, { date: '2026-08-01', rice_type_id: type.id, price_100_tin: 1_850_000, price_per_tin: 18_500 })
+    const { snapshot } = createPurchase(db, {
+      farmer_id: farmer.id,
+      date: '2026-08-01',
+      rice_type_id: type.id,
+      moisture_label: 18,
+    })
+    // No explicit row label → each new row inherits the purchase label (18).
+    addWeight(db, snapshot.id, '100')
+    addWeight(db, snapshot.id, '95')
+    addWeight(db, snapshot.id, '102')
+    const rec = getPurchase(db, snapshot.id)!
+    expect(rec.bags).toEqual([
+      { weight_lb: 100, moisture_label: 18 },
+      { weight_lb: 95, moisture_label: 18 },
+      { weight_lb: 102, moisture_label: 18 },
+    ])
+    // loss = 297/50 × 2 = 11.88 ; net = 285.12
+    expect(rec.snapshot.gross_pound).toBe(297)
+    expect(rec.snapshot.moisture_loss).toBeCloseTo(11.88, 10)
+    expect(rec.snapshot.net_pound).toBeCloseTo(285.12, 10)
+  })
+
+  it('Pattern 2 vs Pattern 1: a bag-level label edit changes only that row; new bags still inherit the purchase label', async () => {
+    const db = await createTestDatabase()
+    const farmer = createFarmer(db, { name: 'Ko Aung' })
+    const type = createRiceType(db, { name: 'Emata' })
+    createRicePrice(db, { date: '2026-08-01', rice_type_id: type.id, price_100_tin: 1_850_000, price_per_tin: 18_500 })
+    const { snapshot } = createPurchase(db, {
+      farmer_id: farmer.id,
+      date: '2026-08-01',
+      rice_type_id: type.id,
+      moisture_label: 17,
+    })
+    addWeight(db, snapshot.id, '100') // inherits 17
+    setBagMoisture(db, snapshot.id, 1, 18) // Pattern 2: row-specific only
+    addWeight(db, snapshot.id, '100') // still inherits 17
+    const rec = getPurchase(db, snapshot.id)!
+    expect(rec.bags).toEqual([
+      { weight_lb: 100, moisture_label: 18 },
+      { weight_lb: 100, moisture_label: 17 },
+    ])
+    // The bag-level edit must NOT become the purchase-level default.
+    expect(rec.snapshot.moisture_label).toBe(17)
+    // loss = 100/50 × 2 + 100/50 × 1 = 6
+    expect(rec.snapshot.moisture_loss).toBeCloseTo(6, 10)
+    expect(rec.snapshot.net_pound).toBeCloseTo(194, 10)
+  })
+
+  it('Pattern 1: setPurchaseMoisture affects only newly inserted rows', async () => {
+    const { db, id } = await seed()
+    addWeight(db, id, '100') // inherits null
+    const totals = setPurchaseMoisture(db, id, 19)
+    expect(totals.moisture_loss).toBe(0) // existing row keeps its own label
+    addWeight(db, id, '100') // inherits 19
+    const rec = getPurchase(db, id)!
+    expect(rec.snapshot.moisture_label).toBe(19)
+    expect(rec.bags).toEqual([
+      { weight_lb: 100, moisture_label: null },
+      { weight_lb: 100, moisture_label: 19 },
+    ])
+    // loss = 100/50 × 3 = 6
+    expect(rec.snapshot.moisture_loss).toBeCloseTo(6, 10)
+    expectCode(() => setPurchaseMoisture(db, id, 21 as never), 'invalid_moisture_label')
+  })
+
   it('finalizes a purchase (≥1 bag + pdf path) then makes it read-only', async () => {
     const { db, id } = await seed()
     expectCode(() => finalizePurchase(db, id, 'PSO/pdf/voucher.pdf'), 'no_bags')
@@ -218,8 +289,10 @@ it('applies the moisture deduction label when adding a weight', async () => {
     expect(finalized.snapshot.pdf_path).toBe('PSO/pdf/voucher.pdf')
 
     expectCode(() => addWeight(db, id, '30', null), 'finalized')
+    expectCode(() => addWeight(db, id, '30'), 'finalized')
     expectCode(() => setBagWeight(db, id, 1, '30'), 'finalized')
     expectCode(() => setBagMoisture(db, id, 1, null), 'finalized')
+    expectCode(() => setPurchaseMoisture(db, id, 17), 'finalized')
     expectCode(() => removeBag(db, id, 1), 'finalized')
     expectCode(() => undoLast(db, id), 'finalized')
     expectCode(() => finalizePurchase(db, id, 'PSO/pdf/d.pdf'), 'finalized')

@@ -8,6 +8,7 @@ import {
   getMoistureConfig,
   listMoistureConfigs,
   setMoistureConfig,
+  suggestedMoistureLabel,
 } from './moistureConfigs'
 
 describe('moisture configuration DAO (CRUD only)', () => {
@@ -51,5 +52,18 @@ describe('moisture configuration DAO (CRUD only)', () => {
     expect(deleteMoistureConfig(db, a.id)).toBe(true)
     expect(listMoistureConfigs(db)).toHaveLength(1)
     expect(getMoistureConfig(db, farmerA.id, type.id)).toBeNull()
+  })
+
+  it('suggests only ACTIVE config labels as the Pattern 1 default', async () => {
+    const db = await createTestDatabase()
+    const farmer = createFarmer(db, { name: 'Ko Aung' })
+    const type = createRiceType(db, { name: 'Emata' })
+    // No config → no suggestion.
+    expect(suggestedMoistureLabel(db, farmer.id, type.id)).toBeNull()
+    setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'active', label: 17 })
+    expect(suggestedMoistureLabel(db, farmer.id, type.id)).toBe(17)
+    // Inactive (default) status → never suggested, even with a label stored.
+    setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'default', label: 18 })
+    expect(suggestedMoistureLabel(db, farmer.id, type.id)).toBeNull()
   })
 })

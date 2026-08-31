@@ -36,6 +36,7 @@ import {
   removeBag,
   setBagMoisture,
   setBagWeight,
+  setPurchaseMoisture,
   undoLast,
 } from '@/services/purchase'
 import { settingsService } from '@/services/settings'
@@ -66,6 +67,8 @@ interface PurchaseFormState {
   grossPound: number
   moistureLoss: number
   netPound: number
+  // Purchase becomes read-only after finalize (Pattern 1 select disabled).
+  finalized: boolean
   // Errors
   serviceError: string | null
 }
@@ -84,6 +87,7 @@ function emptyForm(): PurchaseFormState {
     grossPound: 0,
     moistureLoss: 0,
     netPound: 0,
+    finalized: false,
     serviceError: null,
   }
 }
@@ -105,7 +109,6 @@ export function NewPurchasePage(): JSX.Element {
   const [riceTypes, setRiceTypes] = useState<ReturnType<typeof riceTypesDao.listRiceTypes>>([])
   // Bag entry input.
   const [weightInput, setWeightInput] = useState('')
-  const [bagMoisture, setBagMoistureInput] = useState<MoistureLabelValue>(null)
   /** Ref for the weight input so we can keep focus on repeated Enter entry. */
   const weightInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -157,6 +160,7 @@ export function NewPurchasePage(): JSX.Element {
         grossPound: s.gross_pound,
         moistureLoss: s.moisture_loss,
         netPound: s.net_pound,
+        finalized: s.finalized,
         serviceError: null,
       })
     } catch (e) {
@@ -164,10 +168,20 @@ export function NewPurchasePage(): JSX.Element {
     }
   }, [dbReady, purchaseId])
 
-  // Default the per-bag moisture editor to the Pattern 1 default when it changes.
+  // Pattern 1 pre-fill (reference NewPurchasePage): when a customer + paddy
+  // type are selected on the creation form, the ACTIVE per-customer+type
+  // moisture configuration pre-selects its label; the operator may override
+  // it for this purchase only. A customer change re-resolves the default.
   useEffect(() => {
-    setBagMoistureInput(form.defaultMoisture)
-  }, [form.defaultMoisture])
+    if (!dbReady || purchaseId != null) return
+    if (form.farmerId == null || form.riceTypeId == null) return
+    try {
+      const label = moistureConfigsDao.suggestedMoistureLabel(getDatabase(), form.farmerId, form.riceTypeId)
+      setForm((f) => ({ ...f, defaultMoisture: label }))
+    } catch (e) {
+      setForm((f) => ({ ...f, serviceError: e instanceof Error ? e.message : String(e) }))
+    }
+  }, [dbReady, purchaseId, form.farmerId, form.riceTypeId])
 
   const handleCreate = useCallback(() => {
     if (!dbReady) return
@@ -177,23 +191,20 @@ export function NewPurchasePage(): JSX.Element {
     }
     try {
       const db = getDatabase()
-      // Per-farmer per-type default moisture (PROJECT_SPEC §3.4).
-      let defaultMoisture: MoistureLabelValue = null
-      if (form.farmerId != null && form.riceTypeId != null) {
-        const cfg = moistureConfigsDao.getMoistureConfig(db, form.farmerId, form.riceTypeId)
-        if (cfg && cfg.status === 'active') defaultMoisture = cfg.label
-      }
+      // Pattern 1: the moisture label pre-filled from the active
+      // per-farmer/per-type config (overridable in the form above) becomes
+      // the purchase-level label; every new bag row will inherit it.
       const record = createPurchase(db, {
         farmer_id: form.farmerId,
         date: form.date,
         rice_type_id: form.riceTypeId,
-        moisture_label: defaultMoisture,
+        moisture_label: form.defaultMoisture,
       })
       navigate(`/purchase/${record.snapshot.id}`, { replace: true })
     } catch (e) {
       setForm((f) => ({ ...f, serviceError: e instanceof Error ? e.message : String(e) }))
     }
-  }, [dbReady, form.farmerId, form.riceTypeId, form.date, navigate])
+  }, [dbReady, form.farmerId, form.riceTypeId, form.date, form.defaultMoisture, navigate])
 
   /**
    * Add a bag weight. The `weight` param is passed explicitly so callers (Enter
@@ -210,12 +221,10 @@ export function NewPurchasePage(): JSX.Element {
     }
     try {
       const db = getDatabase()
-      const { totals } = addWeight(db, purchaseId, trimmed, bagMoisture)
+      // Pattern 1: no explicit row-level label is passed, so the new bag row
+      // inherits the purchase-level moisture label (reference `addBag`).
+      const { totals } = addWeight(db, purchaseId, trimmed)
       setWeightInput('')
-      // Reset per-bag moisture override back to "Use Pattern 1" so the next
-      // bag is built from the purchase-level default unless the user
-      // explicitly changes it again. (See Step 10 §16 — repeated entry UX.)
-      setBagMoistureInput(null)
       const record = getPurchaseRecord(db, purchaseId)
       setForm((f) => ({
         ...f,
@@ -238,7 +247,7 @@ export function NewPurchasePage(): JSX.Element {
     } catch (e) {
       setForm((f) => ({ ...f, serviceError: e instanceof Error ? e.message : String(e) }))
     }
-  }, [purchaseId, bagMoisture])
+  }, [purchaseId])
 
   /** Button-triggered weight add (reads current weightInput state). */
   const handleAddWeight = useCallback(() => {
@@ -367,6 +376,36 @@ export function NewPurchasePage(): JSX.Element {
     setForm((f) => ({ ...f, [key]: value, serviceError: null }))
   }, [])
 
+  /**
+   * Pattern 1 (reference `setPurchaseMoisture`): change the purchase-level
+   * moisture label. Existing bag rows KEEP their own labels; only newly
+   * inserted rows inherit the new value. Finalized purchases are read-only.
+   */
+  const handleSetPurchaseMoisture = useCallback(
+    (label: MoistureLabelValue) => {
+      if (purchaseId == null) return
+      try {
+        const db = getDatabase()
+        const totals = setPurchaseMoisture(db, purchaseId, label)
+        setForm((f) => ({
+          ...f,
+          serviceError: null,
+          defaultMoisture: label,
+          totalBags: totals.total_bags,
+          totalPounds: totals.total_pounds,
+          totalTins: totals.total_tins,
+          totalAmount: totals.total_amount,
+          grossPound: totals.gross_pound,
+          moistureLoss: totals.moisture_loss,
+          netPound: totals.net_pound,
+        }))
+      } catch (e) {
+        setForm((f) => ({ ...f, serviceError: e instanceof Error ? e.message : String(e) }))
+      }
+    },
+    [purchaseId],
+  )
+
   const lbPerTin = useMemo(() => {
     if (!dbReady) return 50
     try {
@@ -436,6 +475,33 @@ export function NewPurchasePage(): JSX.Element {
               ))}
             </select>
           </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <Text role="secondary">{t({ my: 'အစိုဓာတ်', en: 'Moisture Label' })}</Text>
+            <select
+              data-testid="new-purchase-moisture"
+              className="rounded border border-border bg-background px-2 py-1.5"
+              value={form.defaultMoisture ?? ''}
+              onChange={(e) =>
+                handleSetHeader(
+                  'defaultMoisture',
+                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
+                )
+              }
+            >
+              <option value="">{t({ my: 'မပါ (Default)', en: 'None (No Moisture)' })}</option>
+              {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <Text role="muted" className="text-xs">
+              {t({
+                my: 'အသစ်ထည့်မည့် အလေးချိန်အတန်းများအားလုံးတွင် ဤအညွှန်း ပါဝင်မည်။',
+                en: 'Newly entered weight rows will inherit this label.',
+              })}
+            </Text>
+          </label>
         </section>
         {form.serviceError && (
           <p role="alert" className="text-sm">
@@ -470,14 +536,40 @@ export function NewPurchasePage(): JSX.Element {
         {t({ my: 'အိတ်ထည့်ခြင်း', en: 'Bag Entry' })}
       </Text>
 
-      {/* Pattern 1 (purchase-level) default moisture UI removed — per-bag
-          moisture label selection in the bag table is the single source of
-          truth. The defaultMoisture state remains: it still seeds new bag
-          rows from the per-farmer/per-type config (PROJECT_SPEC §3.4). */}
+      {/* Pattern 1 (purchase-level) moisture label. Controls the label that
+          NEW bag rows inherit; existing rows keep their own labels. Pattern 2
+          (bag-specific selection) stays the per-row moisture edit in the bag
+          table below — the two are separate workflows. */}
       <section className="rounded-lg border border-border bg-surface p-3">
         <Text role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အိတ်အသစ်ထည့်ရန်', en: 'Add Bag' })}
         </Text>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <Text role="secondary">{t({ my: 'အစိုဓာတ် (ဝယ်ယူမှုအဆင့်)', en: 'Moisture Label (purchase)' })}</Text>
+            <select
+              data-testid="purchase-moisture"
+              className="rounded border border-border bg-background px-2 py-1"
+              value={form.defaultMoisture ?? ''}
+              disabled={form.finalized}
+              onChange={(e) =>
+                handleSetPurchaseMoisture(
+                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
+                )
+              }
+            >
+              <option value="">{t({ my: 'မပါ (Default)', en: 'None (No Moisture)' })}</option>
+              {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Text role="muted" className="text-xs">
+            {t({ my: 'အသစ်ထည့်သော အတန်းများတွင်သာ သက်ရောက်သည်။', en: 'Applies to newly inserted rows only.' })}
+          </Text>
+        </div>
         <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အလေးချိန် (lb)', en: 'Weight (lb)' })}</Text>

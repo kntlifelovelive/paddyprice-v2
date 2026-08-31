@@ -38,6 +38,7 @@ import {
   listPurchases,
   setPurchaseFinalized,
   updateBagRow,
+  updatePurchaseMoistureLabel,
   updatePurchaseTotals,
   type PurchaseFilter,
 } from '@/infrastructure/db/dao/purchases'
@@ -191,16 +192,23 @@ export function listPurchaseRecords(
 /* Weight entry / editing                                              */
 /* ------------------------------------------------------------------ */
 
-/** §2.2 — validate and append a bag row; totals are recomputed. */
+/** §2.2 — validate and append a bag row; totals are recomputed.
+ *
+ * Pattern 1 (reference `addBag`): every new bag row inherits the
+ * purchase-level `moisture_label` unless the caller passes an explicit
+ * row-level label. `undefined` = "use the Pattern 1 default"; an explicit
+ * `null` means "None" for that row only. */
 export function addWeight(
   db: Database,
   purchaseId: number,
   rawWeight: string,
-  moistureLabel: MoistureLabelValue,
+  moistureLabel?: MoistureLabelValue,
 ): { seq: number; totals: PurchaseTotals } {
   const record = requirePurchase(db, purchaseId)
   assertNotFinalized(record.snapshot)
-  if (!isValidMoistureLabel(moistureLabel)) {
+  const label: MoistureLabelValue =
+    moistureLabel === undefined ? (record.snapshot.moisture_label ?? null) : moistureLabel
+  if (!isValidMoistureLabel(label)) {
     throw new PurchaseServiceError('invalid_moisture_label', 'Invalid moisture label')
   }
   const parsed = validateWeight(rawWeight)
@@ -209,7 +217,7 @@ export function addWeight(
   }
   const seq = addBagRow(db, purchaseId, {
     weight_lb: parsed.value,
-    moisture_label: moistureLabel ?? null,
+    moisture_label: label,
   })
   return { seq, totals: recomputeTotals(db, purchaseId) }
 }
@@ -235,6 +243,25 @@ export function setBagWeight(
     weight_lb: parsed.value,
     moisture_label: current.moisture_label,
   })
+  return recomputeTotals(db, purchaseId)
+}
+
+/** Pattern 1 — change the purchase-level moisture label (reference
+ *  `updatePurchaseMoistureLabel`). Existing bag rows KEEP their own labels
+ *  (historical rows are never silently rewritten); only NEWLY inserted rows
+ *  inherit the new label. Totals are recomputed from the per-row labels as
+ *  they stand. Finalized purchases are read-only (§7). */
+export function setPurchaseMoisture(
+  db: Database,
+  purchaseId: number,
+  moistureLabel: MoistureLabelValue,
+): PurchaseTotals {
+  const record = requirePurchase(db, purchaseId)
+  assertNotFinalized(record.snapshot)
+  if (!isValidMoistureLabel(moistureLabel)) {
+    throw new PurchaseServiceError('invalid_moisture_label', 'Invalid moisture label')
+  }
+  updatePurchaseMoistureLabel(db, purchaseId, moistureLabel ?? null)
   return recomputeTotals(db, purchaseId)
 }
 

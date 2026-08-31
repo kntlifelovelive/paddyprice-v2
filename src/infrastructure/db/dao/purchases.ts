@@ -243,6 +243,23 @@ export function updateBagRow(
   return updated
 }
 
+/**
+ * Pattern 1 — update the purchase-level moisture label only. Existing bag
+ * rows KEEP their own labels; only NEWLY inserted rows inherit the new value.
+ * (Totals are recomputed by the service from the per-row labels.)
+ */
+export function updatePurchaseMoistureLabel(
+  db: Database,
+  id: number,
+  label: number | null,
+  now: string = new Date().toISOString(),
+): boolean {
+  run(db, 'UPDATE purchases SET moisture_label = ?, updated_at = ? WHERE id = ?', [label, now, id])
+  const updated = db.getRowsModified() > 0
+  if (updated) scheduleSave()
+  return updated
+}
+
 /** Highest bag `seq` for a purchase — the undo target — or null when no bags. */
 export function lastBagSeq(db: Database, purchaseId: number): number | null {
   const row = queryOne(db, 'SELECT MAX(seq) AS seq FROM bags WHERE purchase_id = ?', [purchaseId])
