@@ -40,6 +40,7 @@ import {
   type PurchaseFilter,
 } from '@/infrastructure/db/dao/purchases'
 import type { PurchaseRecord } from '@/types'
+import type { PurchaseSnapshot } from '@/domain/purchase/types'
 import { todayISO } from '@/shared/format'
 
 /* ------------------------------------------------------------------ */
@@ -78,11 +79,19 @@ export function getDashboard(db: Database, now: string = todayISO()): DashboardD
 
 export type DashboardPeriod = 'today' | 'month' | 'year'
 
+export interface DashboardDateGroup {
+  /** `YYYY-MM-DD` the rows in this group belong to (snapshot date). */
+  date: string
+  groups: DashboardGroupRow[]
+}
+
 export interface DashboardView {
   /** Period + paddy-type filtered aggregate (the single summary card). */
   summary: PurchaseAggregate
-  /** §3.2 — group rows for the same selection (the Home table). */
+  /** §3.2 — group rows for the whole selection. */
   groups: DashboardGroupRow[]
+  /** Same rows, grouped by their own date — newest date first. */
+  dateGroups: DashboardDateGroup[]
 }
 
 /**
@@ -109,9 +118,21 @@ export function getDashboardView(
     riceTypeId == null
       ? filtered
       : filtered.filter((s) => s.rice_type_id === riceTypeId)
+  // Per-date grouping (existing snapshot dates, unchanged) — newest first.
+  const byDate = new Map<string, PurchaseSnapshot[]>()
+  for (const s of typed) {
+    const key = s.date.slice(0, 10)
+    const bucket = byDate.get(key)
+    if (bucket) bucket.push(s)
+    else byDate.set(key, [s])
+  }
+  const dateGroups: DashboardDateGroup[] = [...byDate.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([date, snaps]) => ({ date, groups: buildDashboardGroupRows(snaps) }))
   return {
     summary: summarizePurchases(typed),
     groups: buildDashboardGroupRows(typed),
+    dateGroups,
   }
 }
 

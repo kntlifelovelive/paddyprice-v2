@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react'
 
 import { useAppStore } from '@/app/state'
 import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
+import type { DashboardGroupRow } from '@/domain/summaries/summaries'
 import { getDatabase } from '@/infrastructure/db'
 import { listRiceTypes } from '@/infrastructure/db/dao/riceTypes'
 import {
@@ -24,7 +25,7 @@ import {
   type DashboardView,
 } from '@/services/reports'
 import { settingsService } from '@/services/settings'
-import { formatMMK, formatNumber, formatTins } from '@/shared/format'
+import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { useT } from '@/shared/hooks'
 import { Text } from '@/shared/ui'
 import type { RiceType } from '@/types'
@@ -128,6 +129,123 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
         <Text role="primary">{formatMMK(group.total_amount)}</Text>
       </td>
     </tr>
+  )
+}
+
+/** One date group: date header + group table with a column-wise Total row
+ *  (plain sums of the displayed values — tin/extra decompose each group's
+ *  net pound, exactly as the rows do; no other calculation). */
+function DateGroupSection({
+  date,
+  groups,
+  lbPerTin,
+}: {
+  date: string
+  groups: DashboardGroupRow[]
+  lbPerTin: number
+}): JSX.Element {
+  const t = useT()
+  let bags = 0
+  let pound = 0
+  let tins = 0
+  let extraLb = 0
+  let amount = 0
+  for (const g of groups) {
+    bags += g.total_bags
+    pound += g.net_pound
+    const d = decomposeNetPound(g.net_pound, lbPerTin)
+    tins += d.tins
+    extraLb += d.extraLb
+    amount += g.total_amount
+  }
+  return (
+    <section className="overflow-hidden rounded-lg border border-border bg-surface">
+      {/* Date group header — existing snapshot date, unchanged. */}
+      <div className="border-b border-border bg-surface px-3 py-2">
+        <Text role="primary" className="text-sm font-semibold tabular-nums">
+          {formatDateDMY(date)}
+        </Text>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-sm">
+          <thead>
+            <tr className="border-b border-border bg-surface">
+              <th className="w-10 px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-left">
+                <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
+              </th>
+              <th className="px-2 py-2 text-right">
+                <Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g, idx) => (
+              <GroupRow
+                key={`${g.farmer_id}|${g.rice_type_id}|${g.price_100_tin}`}
+                group={g}
+                lbPerTin={lbPerTin}
+                rowNo={groups.length - idx}
+              />
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-border bg-surface">
+              <td colSpan={4} className="px-2 py-2 text-right">
+                <Text role="primary" className="font-semibold">
+                  {t({ my: 'စုစုပေါင်း', en: 'Total' })}
+                </Text>
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums">
+                <Text role="primary" className="font-semibold">
+                  {formatNumber(bags)}
+                </Text>
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums">
+                <Text role="primary" className="font-semibold">
+                  {formatNumber(pound)}
+                </Text>
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums">
+                <Text role="primary" className="font-semibold">
+                  {formatTins(tins)}
+                </Text>
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums">
+                <Text role="primary" className="font-semibold">
+                  {formatNumber(extraLb)}
+                </Text>
+              </td>
+              <td className="px-2 py-2 text-right tabular-nums">
+                <Text role="primary" className="font-semibold">
+                  {formatMMK(amount)}
+                </Text>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
   )
 }
 
@@ -254,64 +372,17 @@ export function DashboardPage(): JSX.Element {
 
       {/* Summary for the selected period (single card, not a fixed row). */}
       <SummaryCard title={summaryTitle} summary={view.summary} lbPerTin={lbPerTin} />
-      <section className="rounded-lg border border-border bg-surface">
-        <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold">
-            {t({ my: 'အမည် × စပါးအမျိုးအစား × ဈေးနှုန်း', en: 'Name × Paddy Type × Price' })}
-          </Text>
-        </div>
-        {view.groups.length === 0 ? (
-          <div className="p-4">
-            <Text role="muted">{t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}</Text>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface">
-                  <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {view.groups.map((g, idx) => (
-                  <GroupRow
-                    key={`${g.farmer_id}|${g.rice_type_id}|${g.price_100_tin}`}
-                    group={g}
-                    lbPerTin={lbPerTin}
-                    rowNo={view.groups.length - idx}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+      {/* Per-date grouped tables (newest date first), each with a
+          column-wise Total row. */}
+      {view.dateGroups.length === 0 ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <Text role="muted">{t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}</Text>
+        </section>
+      ) : (
+        view.dateGroups.map((dg) => (
+          <DateGroupSection key={dg.date} date={dg.date} groups={dg.groups} lbPerTin={lbPerTin} />
+        ))
+      )}
     </div>
   )
 }
