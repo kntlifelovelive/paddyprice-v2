@@ -119,7 +119,7 @@ export function FarmersPage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="farmers">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'လယ်သမားများ', en: 'Customers' })}
       </Text>
 
@@ -130,7 +130,7 @@ export function FarmersPage(): JSX.Element {
       )}
 
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add' })}
         </Text>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
@@ -170,7 +170,7 @@ export function FarmersPage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
           </Text>
         </div>

@@ -133,13 +133,13 @@ export function MoisturePage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="moisture">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'အစိုဓာတ်', en: 'Moisture' })}
       </Text>
 
       <section className="rounded-lg border border-border bg-surface p-3">
         <div className="flex items-center justify-between">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'အစိုဓာတ် စနစ်ထားရန်', en: 'Moisture Configuration' })}
           </Text>
           {editingId != null && (
@@ -232,7 +232,7 @@ export function MoisturePage(): JSX.Element {
       {/* Moisture List — its own header bar, then one sibling card per date
           group (flat hierarchy, no card-in-card). */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အစိုဓာတ် စာရင်း', en: 'Moisture List' })} ({rows.length})
         </Text>
       </section>
@@ -245,7 +245,7 @@ export function MoisturePage(): JSX.Element {
         <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
           {/* Date group header — existing updated_at date, unchanged. */}
           <div className="border-b border-border bg-accent/10 px-3 py-2">
-            <Text role="primary" className="text-sm font-semibold tabular-nums text-accent">
+            <Text role="primary" className="text-sm font-semibold tabular-nums text-accent-hover">
               {formatDateDMY(date)}
             </Text>
           </div>

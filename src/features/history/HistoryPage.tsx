@@ -174,7 +174,7 @@ export function HistoryPage() {
 
   return (
     <div className="space-y-3 p-3 sm:p-4" data-page="history">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
       </Text>
       {flash && (
@@ -190,7 +190,7 @@ export function HistoryPage() {
         return (
           <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border bg-accent/10 px-3 py-2">
-              <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+              <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
                 {formatDateDMY(date)}
               </Text>
               <div className="flex items-center gap-3 text-xs tabular-nums text-content-muted">

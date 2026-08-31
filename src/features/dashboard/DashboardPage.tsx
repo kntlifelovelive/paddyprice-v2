@@ -182,7 +182,7 @@ function DateGroupSection({
     <section className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Date group header — existing snapshot date, unchanged. */}
       <div className="border-b border-border bg-accent/10 px-3 py-2">
-        <Text role="primary" className="text-sm font-semibold tabular-nums text-accent">
+        <Text role="primary" className="text-sm font-semibold tabular-nums text-accent-hover">
           {formatDateDMY(date)}
         </Text>
       </div>
@@ -351,7 +351,7 @@ export function DashboardPage(): JSX.Element {
         : t({ my: 'ဒီနှစ်', en: 'This Year' })
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="dashboard">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'ပင်မစာမျက်နှာ', en: 'Dashboard' })}
       </Text>
 

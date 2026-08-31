@@ -139,11 +139,11 @@ export function RicePricesPage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="rice-prices">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'စပါးဈေးနှုန်း', en: 'Rice Prices' })}
       </Text>
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add Price' })}
         </Text>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
@@ -214,7 +214,7 @@ export function RicePricesPage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
           </Text>
         </div>

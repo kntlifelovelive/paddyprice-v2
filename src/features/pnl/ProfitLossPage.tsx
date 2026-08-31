@@ -172,7 +172,7 @@ export function ProfitLossPage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="pnl">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'အမြတ်/အရှုံး', en: 'Profit & Loss' })}
       </Text>
 
@@ -206,7 +206,7 @@ export function ProfitLossPage(): JSX.Element {
           NetPound = GrossPound − DeductionLb (stored snapshot values). */}
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'အစိုဓာတ်', en: 'Moisture' })}
           </Text>
         </div>
@@ -219,7 +219,7 @@ export function ProfitLossPage(): JSX.Element {
             <Fragment key={group.date}>
               {/* Date group header */}
               <div className="border-b border-border bg-accent/10 px-3 py-1.5">
-                <Text as="h3" role="header" className="text-sm font-semibold text-accent">
+                <Text as="h3" role="header" className="text-sm font-semibold text-accent-hover">
                   {formatDateDMY(group.date)}
                 </Text>
               </div>
@@ -303,7 +303,7 @@ export function ProfitLossPage(): JSX.Element {
           price — never the customer's purchase amount. */}
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'အစိုဓာတ် နုတ်ယူမှု', en: 'Moisture Deduction' })}
           </Text>
         </div>
@@ -319,7 +319,7 @@ export function ProfitLossPage(): JSX.Element {
               <Fragment key={group.date}>
                 {/* Date group header */}
                 <div className="border-b border-border bg-accent/10 px-3 py-1.5">
-                  <Text as="h3" role="header" className="text-sm font-semibold text-accent">
+                  <Text as="h3" role="header" className="text-sm font-semibold text-accent-hover">
                     {formatDateDMY(group.date)}
                   </Text>
                 </div>

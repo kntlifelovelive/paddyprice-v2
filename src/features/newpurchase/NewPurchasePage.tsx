@@ -389,7 +389,7 @@ export function NewPurchasePage(): JSX.Element {
   if (purchaseId == null) {
     return (
       <div className="space-y-4 p-3 sm:p-4" data-page="purchase-new">
-        <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+        <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
           {t({ my: 'အသစ်ဝယ်ယူခြင်း', en: 'New Purchase' })}
         </Text>
         <section className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-3">
@@ -466,7 +466,7 @@ export function NewPurchasePage(): JSX.Element {
   // Editing an existing purchase: bag entry + live totals.
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="purchase-edit">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'အိတ်ထည့်ခြင်း', en: 'Bag Entry' })}
       </Text>
 
@@ -475,7 +475,7 @@ export function NewPurchasePage(): JSX.Element {
           truth. The defaultMoisture state remains: it still seeds new bag
           rows from the per-farmer/per-type config (PROJECT_SPEC §3.4). */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text role="header" className="text-sm font-semibold text-accent">
+        <Text role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အိတ်အသစ်ထည့်ရန်', en: 'Add Bag' })}
         </Text>
         <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
@@ -523,7 +523,7 @@ export function NewPurchasePage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="flex items-center justify-between border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'အိတ်များ', en: 'Bags' })} ({form.bags.length})
           </Text>
           <div className="flex gap-2">
@@ -644,7 +644,7 @@ export function NewPurchasePage(): JSX.Element {
       {/* Summary — reference-style card grid, uniform styling (no highlight
           borders). Values come from the existing purchase totals logic. */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'စုစုပေါင်း', en: 'Totals' })}
         </Text>
         <dl className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-3">

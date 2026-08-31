@@ -140,7 +140,7 @@ export function HistoryFarmerPage(): JSX.Element {
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="history-farmer">
       <div className="flex items-center justify-between gap-2">
-        <Text as="h1" role="header" className="text-lg font-semibold text-accent">
+        <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
           {t({ my: 'မှတ်တမ်း — ', en: 'History — ' })}{data.farmerName}
         </Text>
         <button type="button" onClick={() => navigate('/history')}
