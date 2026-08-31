@@ -25,8 +25,9 @@ import {
   type MoistureLabelValue,
 } from '@/domain/paddy/moisture'
 import type { MoistureConfig } from '@/types'
+import { formatDateDMY } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text } from '@/shared/ui'
 
 function labelText(label: MoistureLabelValue): string {
   return label == null ? 'None' : String(label)
@@ -40,6 +41,10 @@ export function MoisturePage(): JSX.Element {
   const [label, setLabel] = useState<MoistureLabelValue>(null)
   const [status, setStatus] = useState<'default' | 'active'>('active')
   const [error, setError] = useState<string | null>(null)
+  // UI-only: which config row was loaded into the form via the Edit action.
+  // Save still goes through the existing setMoistureConfig upsert — no new
+  // edit logic, identity stays the (farmer × rice type) pair.
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [farmerOptions, setFarmerOptions] = useState<ReturnType<typeof listFarmers>>([])
   const [riceTypeOptions, setRiceTypeOptions] = useState<ReturnType<typeof listRiceTypes>>([])
 
@@ -81,13 +86,43 @@ export function MoisturePage(): JSX.Element {
     try {
       const db = getDatabase()
       deleteMoistureConfig(db, id)
+      if (editingId === id) setEditingId(null)
       refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
   }
 
+  /** Load an existing config's values into the form. Saving uses the
+      existing setMoistureConfig upsert — no separate edit pathway. */
+  const handleEdit = (row: MoistureConfig) => {
+    setFarmerId(row.farmer_id)
+    setRiceTypeId(row.rice_type_id)
+    setLabel(row.label)
+    setStatus(row.status)
+    setEditingId(row.id)
+    setError(null)
+  }
+
   const rows = useMemo(() => items, [items])
+
+  /** Moisture List grouped by the config's own updated_at date (existing
+      field — unchanged). Dates render newest-first; within a group rows are
+      newest-first so the per-group `No` (group.length − idx) gives the
+      oldest row of THIS group 1 — numbering resets per date. */
+  const dateGroups = useMemo(() => {
+    const sorted = [...items].sort(
+      (a, b) => b.updated_at.localeCompare(a.updated_at) || b.id - a.id,
+    )
+    const groups = new Map<string, MoistureConfig[]>()
+    for (const row of sorted) {
+      const date = row.updated_at.split('T')[0]
+      const bucket = groups.get(date)
+      if (bucket) bucket.push(row)
+      else groups.set(date, [row])
+    }
+    return [...groups.entries()]
+  }, [items])
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="moisture">
@@ -96,9 +131,20 @@ export function MoisturePage(): JSX.Element {
       </Text>
 
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold">
-          {t({ my: 'အသစ်ထည့်ရန်', en: 'Add Configuration' })}
-        </Text>
+        <div className="flex items-center justify-between">
+          <Text as="h2" role="header" className="text-sm font-semibold">
+            {t({ my: 'အစိုဓာတ် စနစ်ထားရန်', en: 'Moisture Configuration' })}
+          </Text>
+          {editingId != null && (
+            <button
+              type="button"
+              onClick={() => setEditingId(null)}
+              className="rounded px-2 py-0.5 text-xs hover:bg-surface-hover"
+            >
+              <Text role="secondary">{t({ my: 'ပြင်ဆင်ခြင်း ပယ်ဖျက်', en: 'Cancel edit' })}</Text>
+            </button>
+          )}
+        </div>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-4">
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
@@ -179,7 +225,7 @@ export function MoisturePage(): JSX.Element {
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
           <Text as="h2" role="header" className="text-sm font-semibold">
-            {t({ my: 'စာရင်း', en: 'List' })} ({rows.length})
+            {t({ my: 'အစိုဓာတ် စာရင်း', en: 'Moisture List' })} ({rows.length})
           </Text>
         </div>
         {rows.length === 0 ? (
@@ -187,64 +233,95 @@ export function MoisturePage(): JSX.Element {
             <Text role="muted">{t({ my: 'မသတ်မှတ်ရသေးပါ', en: 'No configurations' })}</Text>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px] text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface">
-                  <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အစိုဓာတ်', en: 'Label' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
-                  </th>
-                  <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0">
-                    <td className="w-10 px-2 py-2 text-right tabular-nums">
-                      <Text role="secondary">{rows.length - idx}</Text>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Text role="primary">{row.farmer_name}</Text>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Text role="secondary">{row.rice_type_name || '—'}</Text>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Text role="primary">{labelText(row.label)}</Text>
-                    </td>
-                    <td className="px-2 py-2">
-                      <Text role="secondary">{row.status}</Text>
-                    </td>
-                    <td className="px-2 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(row.id)}
-                        className={cn(
-                          'rounded border border-border bg-surface px-2 py-0.5 text-xs',
-                          'hover:bg-surface-hover',
-                        )}
-                      >
-                        {t({ my: 'ဖယ်ရှားမည်', en: 'Remove' })}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4 p-3">
+            {dateGroups.map(([date, groupRows]) => (
+              <div key={date} className="overflow-hidden rounded-lg border border-border">
+                {/* Date group header — existing updated_at date, unchanged. */}
+                <div className="border-b border-border bg-surface px-3 py-2">
+                  <Text role="primary" className="text-sm font-semibold tabular-nums">
+                    {formatDateDMY(date)}
+                  </Text>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px] text-sm">
+                    <thead>
+                      <tr className="border-b border-border bg-surface">
+                        <th className="w-10 px-2 py-2 text-right">
+                          <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                        </th>
+                        <th className="px-2 py-2 text-left">
+                          <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                        </th>
+                        <th className="px-2 py-2 text-left">
+                          <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                        </th>
+                        <th className="px-2 py-2 text-left">
+                          <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
+                        </th>
+                        <th className="px-2 py-2 text-right">
+                          <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupRows.map((row, idx) => (
+                        <tr
+                          key={row.id}
+                          className="border-b border-border last:border-b-0 hover:bg-surface-hover"
+                        >
+                          <td className="w-10 px-2 py-2 text-right tabular-nums">
+                            <Text role="secondary">{groupRows.length - idx}</Text>
+                          </td>
+                          <td className="px-2 py-2">
+                            <Text role="primary">{row.farmer_name}</Text>
+                          </td>
+                          <td className="px-2 py-2">
+                            <Text role="secondary">{row.rice_type_name || '—'}</Text>
+                          </td>
+                          <td className="px-2 py-2">
+                            <Text role="primary">{labelText(row.label)}</Text>
+                          </td>
+                          <td className="px-2 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(row)}
+                                aria-label={t({
+                                  my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
+                                  en: 'Edit moisture record',
+                                })}
+                                title={t({
+                                  my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
+                                  en: 'Edit moisture record',
+                                })}
+                                className="rounded p-1.5 text-warning hover:bg-surface-hover"
+                              >
+                                <EditIcon />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(row.id)}
+                                aria-label={t({
+                                  my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
+                                  en: 'Remove moisture record',
+                                })}
+                                title={t({
+                                  my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
+                                  en: 'Remove moisture record',
+                                })}
+                                className="rounded p-1.5 text-danger hover:bg-surface-hover"
+                              >
+                                <DeleteIcon />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>
