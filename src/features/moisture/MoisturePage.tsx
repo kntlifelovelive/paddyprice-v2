@@ -77,6 +77,13 @@ export function MoisturePage(): JSX.Element {
       setMoistureConfig(db, { farmer_id: farmerId, rice_type_id: riceTypeId ?? 0, status, label: label ?? null })
       setError(null)
       refresh()
+      // Return the form to its defaults after a successful save (including
+      // an edit-save) so the next entry starts clean.
+      setFarmerId(null)
+      setRiceTypeId(null)
+      setLabel(null)
+      setStatus('active')
+      setEditingId(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -147,7 +154,7 @@ export function MoisturePage(): JSX.Element {
         </div>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-4">
           <label className="flex flex-col gap-1">
-            <Text role="secondary">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
+            <Text role="secondary">{t({ my: 'အမည်', en: 'Name' })}</Text>
             <select
               value={farmerId ?? ''}
               onChange={(e) => setFarmerId(e.target.value === '' ? null : Number(e.target.value))}
@@ -222,109 +229,106 @@ export function MoisturePage(): JSX.Element {
         </p>
       )}
 
-      <section className="rounded-lg border border-border bg-surface">
-        <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold">
-            {t({ my: 'အစိုဓာတ် စာရင်း', en: 'Moisture List' })} ({rows.length})
-          </Text>
-        </div>
-        {rows.length === 0 ? (
-          <div className="p-4">
-            <Text role="muted">{t({ my: 'မသတ်မှတ်ရသေးပါ', en: 'No configurations' })}</Text>
-          </div>
-        ) : (
-          <div className="space-y-4 p-3">
-            {dateGroups.map(([date, groupRows]) => (
-              <div key={date} className="overflow-hidden rounded-lg border border-border">
-                {/* Date group header — existing updated_at date, unchanged. */}
-                <div className="border-b border-border bg-surface px-3 py-2">
-                  <Text role="primary" className="text-sm font-semibold tabular-nums">
-                    {formatDateDMY(date)}
-                  </Text>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface">
-                        <th className="w-10 px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
-                        </th>
-                        <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
-                        </th>
-                        <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-                        </th>
-                        <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
-                        </th>
-                        <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {groupRows.map((row, idx) => (
-                        <tr
-                          key={row.id}
-                          className="border-b border-border last:border-b-0 hover:bg-surface-hover"
-                        >
-                          <td className="w-10 px-2 py-2 text-right tabular-nums">
-                            <Text role="secondary">{groupRows.length - idx}</Text>
-                          </td>
-                          <td className="px-2 py-2">
-                            <Text role="primary">{row.farmer_name}</Text>
-                          </td>
-                          <td className="px-2 py-2">
-                            <Text role="secondary">{row.rice_type_name || '—'}</Text>
-                          </td>
-                          <td className="px-2 py-2">
-                            <Text role="primary">{labelText(row.label)}</Text>
-                          </td>
-                          <td className="px-2 py-2 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleEdit(row)}
-                                aria-label={t({
-                                  my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
-                                  en: 'Edit moisture record',
-                                })}
-                                title={t({
-                                  my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
-                                  en: 'Edit moisture record',
-                                })}
-                                className="rounded p-1.5 text-warning hover:bg-surface-hover"
-                              >
-                                <EditIcon />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDelete(row.id)}
-                                aria-label={t({
-                                  my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
-                                  en: 'Remove moisture record',
-                                })}
-                                title={t({
-                                  my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
-                                  en: 'Remove moisture record',
-                                })}
-                                className="rounded p-1.5 text-danger hover:bg-surface-hover"
-                              >
-                                <DeleteIcon />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Moisture List — its own header bar, then one sibling card per date
+          group (flat hierarchy, no card-in-card). */}
+      <section className="rounded-lg border border-border bg-surface p-3">
+        <Text as="h2" role="header" className="text-sm font-semibold">
+          {t({ my: 'အစိုဓာတ် စာရင်း', en: 'Moisture List' })} ({rows.length})
+        </Text>
       </section>
+      {rows.length === 0 && (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <Text role="muted">{t({ my: 'မသတ်မှတ်ရသေးပါ', en: 'No configurations' })}</Text>
+        </section>
+      )}
+      {dateGroups.map(([date, groupRows]) => (
+        <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
+          {/* Date group header — existing updated_at date, unchanged. */}
+          <div className="border-b border-border bg-surface px-3 py-2">
+            <Text role="primary" className="text-sm font-semibold tabular-nums">
+              {formatDateDMY(date)}
+            </Text>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px] text-sm">
+              <thead>
+                <tr className="border-b border-border bg-surface">
+                  <th className="w-10 px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-left">
+                    <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
+                  </th>
+                  <th className="px-2 py-2 text-right">
+                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {groupRows.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    className="border-b border-border last:border-b-0 hover:bg-surface-hover"
+                  >
+                    <td className="w-10 px-2 py-2 text-right tabular-nums">
+                      <Text role="secondary">{groupRows.length - idx}</Text>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Text role="primary">{row.farmer_name}</Text>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Text role="secondary">{row.rice_type_name || '—'}</Text>
+                    </td>
+                    <td className="px-2 py-2">
+                      <Text role="primary">{labelText(row.label)}</Text>
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(row)}
+                          aria-label={t({
+                            my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
+                            en: 'Edit moisture record',
+                          })}
+                          title={t({
+                            my: 'အစိုဓာတ် မှတ်တမ်း ပြင်ရန်',
+                            en: 'Edit moisture record',
+                          })}
+                          className="rounded p-1.5 text-warning hover:bg-surface-hover"
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(row.id)}
+                          aria-label={t({
+                            my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
+                            en: 'Remove moisture record',
+                          })}
+                          title={t({
+                            my: 'အစိုဓာတ် မှတ်တမ်း ဖယ်ရှားရန်',
+                            en: 'Remove moisture record',
+                          })}
+                          className="rounded p-1.5 text-danger hover:bg-surface-hover"
+                        >
+                          <DeleteIcon />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
     </div>
   )
 }
