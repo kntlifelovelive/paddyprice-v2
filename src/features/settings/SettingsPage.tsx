@@ -212,7 +212,7 @@ export function SettingsPage(): JSX.Element {
     <div className="flex h-full flex-col" data-page="settings">
       {/* Title bar */}
       <div className="shrink-0 border-b border-border bg-surface px-4 py-3">
-        <Text as="h1" role="header" className="text-lg font-semibold">
+                <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
           {t({ my: 'ဆက်တင်', en: 'Settings' })}
         </Text>
       </div>
