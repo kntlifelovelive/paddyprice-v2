@@ -389,12 +389,12 @@ export function NewPurchasePage(): JSX.Element {
   if (purchaseId == null) {
     return (
       <div className="space-y-4 p-3 sm:p-4" data-page="purchase-new">
-        <Text as="h1" role="header" className="text-lg font-semibold">
+        <Text as="h1" role="header" className="text-lg font-semibold text-accent">
           {t({ my: 'အသစ်ဝယ်ယူခြင်း', en: 'New Purchase' })}
         </Text>
         <section className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">
-            <Text role="secondary">{t({ my: 'လယ်သမား', en: 'Farmer' })}</Text>
+            <Text role="secondary">{t({ my: 'အမည်', en: 'Name' })}</Text>
             <select
               className="rounded border border-border bg-background px-2 py-1.5"
               value={form.farmerId ?? ''}
@@ -466,7 +466,7 @@ export function NewPurchasePage(): JSX.Element {
   // Editing an existing purchase: bag entry + live totals.
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="purchase-edit">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'အိတ်ထည့်ခြင်း', en: 'Bag Entry' })}
       </Text>
 
@@ -475,7 +475,7 @@ export function NewPurchasePage(): JSX.Element {
           truth. The defaultMoisture state remains: it still seeds new bag
           rows from the per-farmer/per-type config (PROJECT_SPEC §3.4). */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text role="header" className="text-sm font-semibold">
+        <Text role="header" className="text-sm font-semibold text-accent">
           {t({ my: 'အိတ်အသစ်ထည့်ရန်', en: 'Add Bag' })}
         </Text>
         <div className="mt-2 flex flex-wrap items-end gap-2 text-sm">
@@ -523,7 +523,7 @@ export function NewPurchasePage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="flex items-center justify-between border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
             {t({ my: 'အိတ်များ', en: 'Bags' })} ({form.bags.length})
           </Text>
           <div className="flex gap-2">
@@ -547,16 +547,16 @@ export function NewPurchasePage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'အိတ်', en: 'Bag' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အိတ်', en: 'Bag' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture label' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture label' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
@@ -564,7 +564,7 @@ export function NewPurchasePage(): JSX.Element {
                 {/* Display newest-first (highest bag number on top). The
                     underlying bags array order/seq logic is unchanged. */}
                 {[...form.bags].reverse().map((bag) => (
-                  <tr key={bag.seq} className="border-b border-border last:border-b-0">
+                  <tr key={bag.seq} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="px-2 py-1 text-right tabular-nums">
                       <Text role="secondary">{bag.seq}</Text>
                     </td>
@@ -644,7 +644,7 @@ export function NewPurchasePage(): JSX.Element {
       {/* Summary — reference-style card grid, uniform styling (no highlight
           borders). Values come from the existing purchase totals logic. */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
           {t({ my: 'စုစုပေါင်း', en: 'Totals' })}
         </Text>
         <dl className="mt-2 grid grid-cols-2 gap-2 lg:grid-cols-3">

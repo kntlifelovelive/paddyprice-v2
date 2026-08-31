@@ -120,15 +120,15 @@ interface GroupRowProps {
 function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number }): JSX.Element {
   const { tins, extraLb } = decomposeNetPound(group.net_pound, lbPerTin)
   return (
-    <tr className="border-b border-border last:border-b-0">
+    <tr className="border-b border-border last:border-b-0 hover:bg-surface-hover">
       <td className="w-10 px-2 py-2 text-right tabular-nums">
         <Text role="secondary">{rowNo}</Text>
       </td>
       <td className="px-2 py-2 text-left">
-        <Text role="primary">{group.farmer_name}</Text>
+        <Text role="primary" className="font-medium text-accent">{group.farmer_name}</Text>
       </td>
       <td className="px-2 py-2 text-left">
-        <Text role="primary">{group.rice_type_name}</Text>
+        <Text role="primary" className="text-content-secondary">{group.rice_type_name}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
         <Text role="primary">{formatNumber(group.price_per_tin)}</Text>
@@ -137,7 +137,7 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
         <Text role="secondary">{formatNumber(group.total_bags)}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
-        <Text role="primary">{formatNumber(group.net_pound)}</Text>
+        <Text role="primary" className="font-medium">{formatNumber(group.net_pound)}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
         <Text role="primary">{formatTins(tins)}</Text>
@@ -145,8 +145,8 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
       <td className="px-2 py-2 text-right tabular-nums">
         <Text role="primary">{formatNumber(extraLb)}</Text>
       </td>
-      <td className="px-2 py-2 text-right tabular-nums">
-        <Text role="primary">{formatMMK(group.total_amount)}</Text>
+      <td className="bg-accent/10 px-2 py-2 text-right tabular-nums">
+        <Text role="primary" className="font-semibold text-accent">{formatMMK(group.total_amount)}</Text>
       </td>
     </tr>
   )
@@ -181,8 +181,8 @@ function DateGroupSection({
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Date group header — existing snapshot date, unchanged. */}
-      <div className="border-b border-border bg-surface px-3 py-2">
-        <Text role="primary" className="text-sm font-semibold tabular-nums">
+      <div className="border-b border-border bg-accent/10 px-3 py-2">
+        <Text role="primary" className="text-sm font-semibold tabular-nums text-accent">
           {formatDateDMY(date)}
         </Text>
       </div>
@@ -191,31 +191,31 @@ function DateGroupSection({
           <thead>
             <tr className="border-b border-border bg-surface">
               <th className="w-10 px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text>
               </th>
               <th className="px-2 py-2 text-left">
-                <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'အမည်', en: 'Name' })}</Text>
               </th>
               <th className="px-2 py-2 text-left">
-                <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'တင်း', en: 'Tin' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'တင်း', en: 'Tin' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
+                <Text role="header" className="font-semibold text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
               </th>
             </tr>
           </thead>
@@ -230,9 +230,9 @@ function DateGroupSection({
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t border-border bg-surface">
+            <tr className="border-t border-border bg-accent/10">
               <td colSpan={4} className="px-2 py-2 text-right">
-                <Text role="primary" className="font-semibold">
+                <Text role="primary" className="font-semibold text-accent">
                   {t({ my: 'စုစုပေါင်း', en: 'Total' })}
                 </Text>
               </td>
@@ -257,7 +257,7 @@ function DateGroupSection({
                 </Text>
               </td>
               <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold">
+                <Text role="primary" className="font-semibold text-accent">
                   {formatMMK(amount)}
                 </Text>
               </td>
@@ -351,7 +351,7 @@ export function DashboardPage(): JSX.Element {
         : t({ my: 'ဒီနှစ်', en: 'This Year' })
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="dashboard">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'ပင်မစာမျက်နှာ', en: 'Dashboard' })}
       </Text>
 

@@ -174,7 +174,7 @@ export function HistoryPage() {
 
   return (
     <div className="space-y-3 p-3 sm:p-4" data-page="history">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
       </Text>
       {flash && (
@@ -189,8 +189,8 @@ export function HistoryPage() {
         const gAmount = group.reduce((s, r) => s + r.snapshot.total_amount, 0)
         return (
           <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
-            <div className="flex items-center justify-between border-b border-border bg-surface-hover px-3 py-2">
-              <Text as="h2" role="header" className="text-sm font-semibold">
+            <div className="flex items-center justify-between border-b border-border bg-accent/10 px-3 py-2">
+              <Text as="h2" role="header" className="text-sm font-semibold text-accent">
                 {formatDateDMY(date)}
               </Text>
               <div className="flex items-center gap-3 text-xs tabular-nums text-content-muted">
@@ -204,21 +204,21 @@ export function HistoryPage() {
               <table data-testid="history-table" className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface">
-                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'အစဉ်', en: 'NO' })}</th>
-                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
-                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'အမည်', en: 'Name' })}</th>
-                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
-                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'အိတ်', en: 'Bags' })}</th>
-                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
-                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'ငွေ', en: 'Amount' })}</th>
-                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'အစဉ်', en: 'NO' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'အမည်', en: 'Name' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'အိတ်', en: 'Bags' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {group.map((record, index) => {
                     const s = record.snapshot
                     return (
-                      <tr key={s.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover/40">
+                      <tr key={s.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                         <td className="px-2 py-2 text-right tabular-nums text-content-muted">
                           {group.length - index}
                         </td>
@@ -229,7 +229,7 @@ export function HistoryPage() {
                           <button
                             type="button"
                             onClick={() => navigate(`/history/${s.farmer_id}`)}
-                            className="font-medium text-content-primary hover:underline"
+                            className="font-medium text-accent hover:underline"
                           >
                             {s.farmer_name}
                           </button>
@@ -238,7 +238,7 @@ export function HistoryPage() {
                         <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{s.total_bags}</td>
                         {/* NET pound (§3) — never gross or deduction. */}
                         <td className="px-2 py-2 text-right tabular-nums text-content-primary font-medium">{formatNumber(s.net_pound)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-content-primary font-semibold">{formatMMK(s.total_amount)}</td>
+                        <td className="bg-accent/10 px-2 py-2 text-right tabular-nums text-accent font-semibold">{formatMMK(s.total_amount)}</td>
                         <td className="px-2 py-2">
                           <div className="flex items-center justify-end gap-1">
                             <button

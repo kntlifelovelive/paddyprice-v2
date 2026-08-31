@@ -140,7 +140,7 @@ export function HistoryFarmerPage(): JSX.Element {
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="history-farmer">
       <div className="flex items-center justify-between gap-2">
-        <Text as="h1" role="header" className="text-lg font-semibold">
+        <Text as="h1" role="header" className="text-lg font-semibold text-accent">
           {t({ my: 'မှတ်တမ်း — ', en: 'History — ' })}{data.farmerName}
         </Text>
         <button type="button" onClick={() => navigate('/history')}
@@ -168,15 +168,15 @@ export function HistoryFarmerPage(): JSX.Element {
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border bg-surface">
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'တင်း', en: 'Tin' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold text-accent">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold text-accent">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'တင်း', en: 'Tin' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text></th>
               </tr>
             </thead>
             <tbody>
@@ -185,7 +185,7 @@ export function HistoryFarmerPage(): JSX.Element {
               ) : data.rows.map((r, idx) => {
                 const tinRow = breakdown[idx]
                 return (
-                  <tr key={r.snapshot.purchase_no} className="border-b border-border last:border-b-0 hover:bg-surface-hover/40">
+                  <tr key={r.snapshot.purchase_no} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-1.5 text-right tabular-nums text-content-muted">{data.rows.length - idx}</td>
                     <td className="px-2 py-1.5"><Text role="primary" className="font-medium tabular-nums">{r.snapshot.purchase_no}</Text></td>
                     <td className="px-2 py-1.5 text-content-secondary tabular-nums">{formatDateDMY(r.snapshot.date)}</td>
@@ -193,7 +193,7 @@ export function HistoryFarmerPage(): JSX.Element {
                     <td className="px-2 py-1.5 text-right tabular-nums text-content-primary font-medium">{formatNumber(r.snapshot.net_pound)}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-content-secondary">{formatTins(tinRow.tins)}</td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-content-secondary">{formatNumber(tinRow.extraLb)}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-content-primary font-semibold">{formatMMK(r.snapshot.total_amount)}</td>
+                    <td className="bg-accent/10 px-2 py-1.5 text-right tabular-nums text-accent font-semibold">{formatMMK(r.snapshot.total_amount)}</td>
                     <td className="px-2 py-1.5">
                       <div className="flex items-center justify-end gap-1">
                         <button type="button" onClick={() => { void handlePdf(r.snapshot.id) }} disabled={busyId === r.snapshot.id}

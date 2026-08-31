@@ -133,13 +133,13 @@ export function MoisturePage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="moisture">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'အစိုဓာတ်', en: 'Moisture' })}
       </Text>
 
       <section className="rounded-lg border border-border bg-surface p-3">
         <div className="flex items-center justify-between">
-          <Text as="h2" role="header" className="text-sm font-semibold">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
             {t({ my: 'အစိုဓာတ် စနစ်ထားရန်', en: 'Moisture Configuration' })}
           </Text>
           {editingId != null && (
@@ -232,7 +232,7 @@ export function MoisturePage(): JSX.Element {
       {/* Moisture List — its own header bar, then one sibling card per date
           group (flat hierarchy, no card-in-card). */}
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
           {t({ my: 'အစိုဓာတ် စာရင်း', en: 'Moisture List' })} ({rows.length})
         </Text>
       </section>
@@ -244,8 +244,8 @@ export function MoisturePage(): JSX.Element {
       {dateGroups.map(([date, groupRows]) => (
         <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
           {/* Date group header — existing updated_at date, unchanged. */}
-          <div className="border-b border-border bg-surface px-3 py-2">
-            <Text role="primary" className="text-sm font-semibold tabular-nums">
+          <div className="border-b border-border bg-accent/10 px-3 py-2">
+            <Text role="primary" className="text-sm font-semibold tabular-nums text-accent">
               {formatDateDMY(date)}
             </Text>
           </div>
@@ -254,19 +254,19 @@ export function MoisturePage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
@@ -280,7 +280,7 @@ export function MoisturePage(): JSX.Element {
                       <Text role="secondary">{groupRows.length - idx}</Text>
                     </td>
                     <td className="px-2 py-2">
-                      <Text role="primary">{row.farmer_name}</Text>
+                      <Text role="primary" className="font-medium text-accent">{row.farmer_name}</Text>
                     </td>
                     <td className="px-2 py-2">
                       <Text role="secondary">{row.rice_type_name || '—'}</Text>

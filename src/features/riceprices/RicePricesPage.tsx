@@ -139,11 +139,11 @@ export function RicePricesPage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="rice-prices">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'စပါးဈေးနှုန်း', en: 'Rice Prices' })}
       </Text>
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add Price' })}
         </Text>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
@@ -214,7 +214,7 @@ export function RicePricesPage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
             {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
           </Text>
         </div>
@@ -228,28 +228,28 @@ export function RicePricesPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: '၁၀၀ တင်း', en: 'Per 100 Tin' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: '၁၀၀ တင်း', en: 'Per 100 Tin' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: '၁ တင်း', en: 'Per Tin' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: '၁ တင်း', en: 'Per Tin' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((p, idx) => (
-                  <tr key={p.id} className="border-b border-border last:border-b-0">
+                  <tr key={p.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-2 text-right tabular-nums">
                       <Text role="secondary">{items.length - idx}</Text>
                     </td>
@@ -257,7 +257,7 @@ export function RicePricesPage(): JSX.Element {
                       <Text role="primary">{p.date}</Text>
                     </td>
                     <td className="px-2 py-2">
-                      <Text role="secondary">{riceTypeName(p.rice_type_id)}</Text>
+                      <Text role="primary" className="font-medium text-accent">{riceTypeName(p.rice_type_id)}</Text>
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">
                       {editingId === p.id ? (
@@ -277,7 +277,7 @@ export function RicePricesPage(): JSX.Element {
                           className="w-28 rounded border border-border bg-background px-1 py-0.5 text-right text-xs tabular-nums"
                         />
                       ) : (
-                        <Text role="primary">{formatMMK(p.price_100_tin)}</Text>
+                        <Text role="primary" className="font-medium">{formatMMK(p.price_100_tin)}</Text>
                       )}
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">

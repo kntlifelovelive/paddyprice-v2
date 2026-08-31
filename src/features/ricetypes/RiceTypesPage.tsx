@@ -105,7 +105,7 @@ export function RiceTypesPage(): JSX.Element {
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="rice-types">
-      <Text as="h1" role="header" className="text-lg font-semibold">
+      <Text as="h1" role="header" className="text-lg font-semibold text-accent">
         {t({ my: 'စပါးအမျိုးအစားများ', en: 'Paddy Types' })}
       </Text>
 
@@ -116,7 +116,7 @@ export function RiceTypesPage(): JSX.Element {
       )}
 
       <section className="rounded-lg border border-border bg-surface p-3">
-        <Text as="h2" role="header" className="text-sm font-semibold">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add' })}
         </Text>
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
@@ -156,7 +156,7 @@ export function RiceTypesPage(): JSX.Element {
 
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold">
+          <Text as="h2" role="header" className="text-sm font-semibold text-accent">
             {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
           </Text>
         </div>
@@ -170,25 +170,25 @@ export function RiceTypesPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header" className="font-semibold">{t({ my: 'ဖော်ပြချက်', en: 'Description' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'ဖော်ပြချက်', en: 'Description' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-center">
-                    <Text role="header" className="font-semibold">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((rt, idx) => (
-                  <tr key={rt.id} className="border-b border-border last:border-b-0">
+                  <tr key={rt.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-1 text-right tabular-nums">
                       <Text role="secondary">{items.length - idx}</Text>
                     </td>
@@ -201,7 +201,7 @@ export function RiceTypesPage(): JSX.Element {
                           className="w-full rounded border border-border bg-background px-2 py-1"
                         />
                       ) : (
-                        <Text role="primary">{rt.name}</Text>
+                        <Text role="primary" className="font-medium text-accent">{rt.name}</Text>
                       )}
                     </td>
                     <td className="px-2 py-1">
