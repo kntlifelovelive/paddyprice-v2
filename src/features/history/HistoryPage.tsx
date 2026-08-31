@@ -16,11 +16,12 @@ import { useNavigate } from 'react-router-dom'
 import type { Database } from 'sql.js'
 
 import { getDatabase } from '@/infrastructure/db'
+import { deletePurchase } from '@/infrastructure/db/dao/purchases'
 import { getHistoryRecords } from '@/services/reports'
 import { settingsService } from '@/services/settings'
 import { formatDateDMY, formatMMK, formatNumber } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { EditIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
+import { DeleteIcon, EditIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
 import type { PurchaseRecord } from '@/types'
 import { generateVoucherPdf } from '@/services/pdf/service'
 import { printReceipt } from '@/services/print/service'
@@ -75,13 +76,29 @@ export function HistoryPage() {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState<number | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  // Bumped after a delete so the data memo re-reads from the database.
+  const [reloadKey, setReloadKey] = useState(0)
   const data = useMemo<{ data: HistoryData | null; error: string | null }>(() => {
     try {
       return { data: loadHistory(getDatabase()), error: null }
     } catch (error) {
       return { data: null, error: error instanceof Error ? error.message : 'Failed to load history' }
     }
-  }, [])
+  }, [reloadKey])
+
+  /** Delete via the existing purchase DAO, guarded by a confirmation. */
+  function handleDelete(record: PurchaseRecord): void {
+    const s = record.snapshot
+    const message = `${t({ my: 'ဤဝယ်ယူမှုအား ဖျက်မှာလား?', en: 'Delete this purchase?' })} (${s.purchase_no})`
+    if (!window.confirm(message)) return
+    try {
+      deletePurchase(getDatabase(), s.id)
+      setReloadKey((k) => k + 1)
+      setFlash({ kind: 'ok', text: t({ my: 'ဖျက်ပြီးပါပြီ', en: 'Purchase deleted' }) })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Delete failed' })
+    }
+  }
 
   async function handlePdf(purchaseId: number): Promise<void> {
     setBusyId(purchaseId)
@@ -228,8 +245,8 @@ export function HistoryPage() {
                               type="button"
                               onClick={() => navigate(`/purchase/${s.id}`)}
                               title={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
-                              aria-label={t({ my: 'ပြင်ဆင်', en: 'Edit' })}
-                              className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary"
+                              aria-label={t({ my: 'ဝယ်ယူမှု ပြင်ရန်', en: 'Edit purchase' })}
+                              className="rounded p-1 text-warning hover:bg-surface-hover"
                             >
                               <EditIcon size="h-4 w-4" />
                             </button>
@@ -252,6 +269,15 @@ export function HistoryPage() {
                               className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
                             >
                               <PrintIcon size="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(record)}
+                              title={t({ my: 'ဖျက်', en: 'Delete' })}
+                              aria-label={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
+                              className="rounded p-1 text-danger hover:bg-surface-hover"
+                            >
+                              <DeleteIcon size="h-4 w-4" />
                             </button>
                           </div>
                         </td>

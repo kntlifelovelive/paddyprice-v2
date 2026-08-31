@@ -11,16 +11,23 @@
  *
  * All colors/text use the semantic theme tokens; no hard-coded white/black.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useAppStore } from '@/app/state'
 import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import { getDatabase } from '@/infrastructure/db'
-import { getDashboard, type DashboardData } from '@/services/reports'
+import { listRiceTypes } from '@/infrastructure/db/dao/riceTypes'
+import {
+  getDashboardView,
+  type DashboardData,
+  type DashboardPeriod,
+  type DashboardView,
+} from '@/services/reports'
 import { settingsService } from '@/services/settings'
 import { formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { useT } from '@/shared/hooks'
 import { Text } from '@/shared/ui'
+import type { RiceType } from '@/types'
 
 type PeriodSummary = DashboardData['summaries']['today']
 type DashboardGroup = DashboardData['groups'][number]
@@ -125,28 +132,49 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
 }
 
 interface DashboardState {
-  data: DashboardData | null
+  view: DashboardView | null
+  riceTypes: RiceType[]
   error: string | null
   lbPerTin: number
 }
 
+/** §3.2 — Home period choices (mutually exclusive; default = Today). */
+const PERIODS: ReadonlyArray<{ id: DashboardPeriod; my: string; en: string }> = [
+  { id: 'today', my: 'ဒီနေ့', en: 'Today' },
+  { id: 'month', my: 'လစဉ်', en: 'Monthly' },
+  { id: 'year', my: 'နှစ်စု', en: 'Yearly' },
+]
+
 export function DashboardPage(): JSX.Element {
   const t = useT()
   const dbReady = useAppStore((s) => s.dbReady)
-  const [state, setState] = useState<DashboardState>({ data: null, error: null, lbPerTin: 50 })
+  // Period + paddy-type selection (reference Home control row).
+  const [period, setPeriod] = useState<DashboardPeriod>('today')
+  const [riceTypeId, setRiceTypeId] = useState<number | null>(null)
+  const [state, setState] = useState<DashboardState>({
+    view: null,
+    riceTypes: [],
+    error: null,
+    lbPerTin: 50,
+  })
 
   useEffect(() => {
     if (!dbReady) return
     let alive = true
     try {
       const db = getDatabase()
-      const data = getDashboard(db)
+      // Filter options + display scale.
+      const riceTypes = listRiceTypes(db, true)
       const lbPerTin = settingsService.lbPerTin(db)
-      if (alive) setState({ data, error: null, lbPerTin })
+      // §3.2 — view data for the selected calendar period + paddy type.
+      // Reuses the stored-snapshot aggregators; nothing re-derived here.
+      const view = getDashboardView(db, period, riceTypeId)
+      if (alive) setState({ view, riceTypes, error: null, lbPerTin })
     } catch (e) {
       if (alive) {
         setState({
-          data: null,
+          view: null,
+          riceTypes: [],
           error: e instanceof Error ? e.message : String(e),
           lbPerTin: 50,
         })
@@ -155,30 +183,7 @@ export function DashboardPage(): JSX.Element {
     return () => {
       alive = false
     }
-  }, [dbReady])
-
-  const summaryCards = useMemo(() => {
-    if (!state.data) return null
-    return (
-      <div className="grid gap-4 sm:grid-cols-3">
-        <SummaryCard
-          title={t({ my: 'ဒီနေ့', en: 'Today' })}
-          summary={state.data.summaries.today}
-          lbPerTin={state.lbPerTin}
-        />
-        <SummaryCard
-          title={t({ my: 'ဒီလ', en: 'This Month' })}
-          summary={state.data.summaries.month}
-          lbPerTin={state.lbPerTin}
-        />
-        <SummaryCard
-          title={t({ my: 'ဒီနှစ်', en: 'This Year' })}
-          summary={state.data.summaries.year}
-          lbPerTin={state.lbPerTin}
-        />
-      </div>
-    )
-  }, [state.data, state.lbPerTin, t])
+  }, [dbReady, period, riceTypeId])
 
   if (state.error) {
     return (
@@ -191,7 +196,7 @@ export function DashboardPage(): JSX.Element {
       </div>
     )
   }
-  if (!state.data) {
+  if (!state.view) {
     return (
       <div className="space-y-4 p-3 sm:p-4" data-page="dashboard">
         <Text role="secondary">{t({ my: 'ဖွင့်နေသည်…', en: 'Loading…' })}</Text>
@@ -199,20 +204,63 @@ export function DashboardPage(): JSX.Element {
     )
   }
 
-  const { data, lbPerTin } = state
+  const { view, riceTypes, lbPerTin } = state
+  const summaryTitle =
+    period === 'today'
+      ? t({ my: 'ဒီနေ့', en: 'Today' })
+      : period === 'month'
+        ? t({ my: 'ဒီလ', en: 'This Month' })
+        : t({ my: 'ဒီနှစ်', en: 'This Year' })
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="dashboard">
       <Text as="h1" role="header" className="text-lg font-semibold">
         {t({ my: 'ပင်မစာမျက်နှာ', en: 'Dashboard' })}
       </Text>
-      {summaryCards}
+
+      {/* Period toggle + paddy-type filter — reference Home control row
+          (mutually exclusive segments; active = accent). */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="flex overflow-hidden rounded-lg border border-border sm:col-span-2">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setPeriod(p.id)}
+              aria-pressed={period === p.id}
+              className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                period === p.id
+                  ? 'bg-accent text-accent-text'
+                  : 'text-content-muted hover:bg-surface-hover'
+              }`}
+            >
+              {t({ my: p.my, en: p.en })}
+            </button>
+          ))}
+        </div>
+        <select
+          value={riceTypeId ?? ''}
+          onChange={(e) => setRiceTypeId(e.target.value === '' ? null : Number(e.target.value))}
+          aria-label={t({ my: 'စပါးအမျိုးအစား ရွေးချယ်ရန်', en: 'Filter by paddy type' })}
+          className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
+        >
+          <option value="">{t({ my: 'အမျိုးအစား အားလုံး', en: 'All Paddy Types' })}</option>
+          {riceTypes.map((rt) => (
+            <option key={rt.id} value={rt.id}>
+              {rt.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Summary for the selected period (single card, not a fixed row). */}
+      <SummaryCard title={summaryTitle} summary={view.summary} lbPerTin={lbPerTin} />
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
           <Text as="h2" role="header" className="text-sm font-semibold">
             {t({ my: 'အမည် × စပါးအမျိုးအစား × ဈေးနှုန်း', en: 'Name × Paddy Type × Price' })}
           </Text>
         </div>
-        {data.groups.length === 0 ? (
+        {view.groups.length === 0 ? (
           <div className="p-4">
             <Text role="muted">{t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}</Text>
           </div>
@@ -251,12 +299,12 @@ export function DashboardPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {data.groups.map((g, idx) => (
+                {view.groups.map((g, idx) => (
                   <GroupRow
                     key={`${g.farmer_id}|${g.rice_type_id}|${g.price_100_tin}`}
                     group={g}
                     lbPerTin={lbPerTin}
-                    rowNo={data.groups.length - idx}
+                    rowNo={view.groups.length - idx}
                   />
                 ))}
               </tbody>

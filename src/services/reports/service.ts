@@ -76,6 +76,45 @@ export function getDashboard(db: Database, now: string = todayISO()): DashboardD
   }
 }
 
+export type DashboardPeriod = 'today' | 'month' | 'year'
+
+export interface DashboardView {
+  /** Period + paddy-type filtered aggregate (the single summary card). */
+  summary: PurchaseAggregate
+  /** §3.2 — group rows for the same selection (the Home table). */
+  groups: DashboardGroupRow[]
+}
+
+/**
+ * §3.2 — Home table data for ONE calendar period (Today/Monthly/Yearly, in
+ * the local reference date's own month/year — never rolling 30/365 days)
+ * with an optional paddy-type filter. Reuses the same stored-snapshot loader
+ * and pure aggregators as getDashboard — no new calculations.
+ */
+export function getDashboardView(
+  db: Database,
+  period: DashboardPeriod,
+  riceTypeId: number | null,
+  now: string = todayISO(),
+): DashboardView {
+  const snapshots = listPurchases(db).map((record) => record.snapshot)
+  const filtered = snapshots.filter((s) =>
+    period === 'today'
+      ? s.date === now
+      : period === 'month'
+        ? s.date.slice(0, 7) === now.slice(0, 7)
+        : s.date.slice(0, 4) === now.slice(0, 4),
+  )
+  const typed =
+    riceTypeId == null
+      ? filtered
+      : filtered.filter((s) => s.rice_type_id === riceTypeId)
+  return {
+    summary: summarizePurchases(typed),
+    groups: buildDashboardGroupRows(typed),
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* History                                                             */
 /* ------------------------------------------------------------------ */
