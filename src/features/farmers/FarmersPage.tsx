@@ -184,19 +184,19 @@ export function FarmersPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'လိပ်စာ', en: 'Address' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လိပ်စာ', en: 'Address' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'ဖုန်းနံပါတ်', en: 'Phone' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'ဖုန်းနံပါတ်', en: 'Phone' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>

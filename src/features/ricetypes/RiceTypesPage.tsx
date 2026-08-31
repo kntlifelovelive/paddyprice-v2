@@ -170,19 +170,19 @@ export function RiceTypesPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'ဖော်ပြချက်', en: 'Description' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'ဖော်ပြချက်', en: 'Description' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-center">
-                    <Text role="header">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အခြေအနေ', en: 'Status' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>

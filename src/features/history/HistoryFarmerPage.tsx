@@ -168,15 +168,15 @@ export function HistoryFarmerPage(): JSX.Element {
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-border bg-surface">
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text></th>
-                <th className="px-2 py-2 text-left"><Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text></th>
-                <th className="px-2 py-2 text-right"><Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text></th>
+                <th className="px-2 py-2 text-left"><Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'တင်း', en: 'Tin' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text></th>
+                <th className="px-2 py-2 text-right"><Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text></th>
               </tr>
             </thead>
             <tbody>

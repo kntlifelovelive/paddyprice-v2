@@ -140,10 +140,10 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
         <Text role="primary">{formatNumber(group.net_pound)}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
-        <Text role="secondary">{formatTins(tins)}</Text>
+        <Text role="primary">{formatTins(tins)}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
-        <Text role="secondary">{formatNumber(extraLb)}</Text>
+        <Text role="primary">{formatNumber(extraLb)}</Text>
       </td>
       <td className="px-2 py-2 text-right tabular-nums">
         <Text role="primary">{formatMMK(group.total_amount)}</Text>
@@ -191,31 +191,31 @@ function DateGroupSection({
           <thead>
             <tr className="border-b border-border bg-surface">
               <th className="w-10 px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
               </th>
               <th className="px-2 py-2 text-left">
-                <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
               </th>
               <th className="px-2 py-2 text-left">
-                <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'တင်းဈေး', en: 'Price/Tin' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'အိတ်', en: 'Bags' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'တင်း', en: 'Tin' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</Text>
               </th>
               <th className="px-2 py-2 text-right">
-                <Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
+                <Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
               </th>
             </tr>
           </thead>

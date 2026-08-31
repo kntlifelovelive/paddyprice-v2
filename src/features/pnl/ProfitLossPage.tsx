@@ -228,31 +228,31 @@ export function ProfitLossPage(): JSX.Element {
                   <thead>
                     <tr className="border-b border-border bg-surface">
                       <th className="w-10 px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-left">
-                        <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-left">
-                        <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'Gross ပေါင်', en: 'Gross Pound' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'Gross ပေါင်', en: 'Gross Pound' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'အညွှန်း', en: 'Label' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'အညွှန်း', en: 'Label' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'နုတ်ယူမှု (lb)', en: 'Deduction (lb)' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'နုတ်ယူမှု (lb)', en: 'Deduction (lb)' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-left">
-                        <Text role="header">{t({ my: 'အစိုဓာတ် အသေးစိတ်', en: 'Moisture Breakdown' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အသေးစိတ်', en: 'Moisture Breakdown' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'Net ပေါင်', en: 'Net Pound' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'Net ပေါင်', en: 'Net Pound' })}</Text>
                       </th>
                       <th className="px-2 py-2 text-right">
-                        <Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
+                        <Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
                       </th>
                     </tr>
                   </thead>
@@ -272,13 +272,13 @@ export function ProfitLossPage(): JSX.Element {
                           <Text role="primary">{formatNumber(row.gross_pound)}</Text>
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums">
-                          <Text role="secondary">{row.moisture_label ?? '—'}</Text>
+                          <Text role="primary" className="font-medium text-warning">{row.moisture_label ?? '—'}</Text>
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums">
-                          <Text role="secondary">{formatNumber(row.moisture_loss)}</Text>
+                          <Text role="primary">{formatNumber(row.moisture_loss)}</Text>
                         </td>
                         <td className="px-2 py-2">
-                          <Text role="secondary">{row.moisture_breakdown || '—'}</Text>
+                          <Text role="primary" className="font-medium text-warning">{row.moisture_breakdown || '—'}</Text>
                         </td>
                         <td className="px-2 py-2 text-right tabular-nums">
                           <Text role="primary">{formatNumber(row.net_pound)}</Text>
@@ -328,31 +328,31 @@ export function ProfitLossPage(): JSX.Element {
                     <thead>
                       <tr className="border-b border-border bg-surface">
                         <th className="w-10 px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'တင်းဈေး', en: 'Price' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'တင်းဈေး', en: 'Price' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-left">
-                          <Text role="header">{t({ my: 'အစိုဓာတ် အသေးစိတ်', en: 'Moisture Breakdown' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အသေးစိတ်', en: 'Moisture Breakdown' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'နုတ်ယူမှု ပေါင်', en: 'Deduction Pound' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'နုတ်ယူမှု ပေါင်', en: 'Deduction Pound' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'တင်း', en: 'Tin' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'တင်း', en: 'Tin' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'ပိုပေါင်', en: 'Extra lb' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'ပိုပေါင်', en: 'Extra lb' })}</Text>
                         </th>
                         <th className="px-2 py-2 text-right">
-                          <Text role="header">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
+                          <Text role="header" className="font-semibold">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
                         </th>
                       </tr>
                     </thead>
@@ -378,7 +378,7 @@ export function ProfitLossPage(): JSX.Element {
                               <Text role="primary">{row ? formatNumber(row.price_per_tin) : '—'}</Text>
                             </td>
                             <td className="px-2 py-2">
-                              <Text role="secondary">
+                              <Text role="primary" className="font-medium text-warning">
                                 {row?.moisture_breakdown || '—'}
                               </Text>
                             </td>

@@ -254,19 +254,19 @@ export function MoisturePage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အမည်', en: 'Name' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အမည်', en: 'Name' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture Label' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
@@ -286,7 +286,7 @@ export function MoisturePage(): JSX.Element {
                       <Text role="secondary">{row.rice_type_name || '—'}</Text>
                     </td>
                     <td className="px-2 py-2">
-                      <Text role="primary">{labelText(row.label)}</Text>
+                      <Text role="primary" className="font-medium text-warning">{labelText(row.label)}</Text>
                     </td>
                     <td className="px-2 py-2 text-right">
                       <div className="flex items-center justify-end gap-1">

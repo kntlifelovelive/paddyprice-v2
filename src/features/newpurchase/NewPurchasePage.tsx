@@ -547,16 +547,16 @@ export function NewPurchasePage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အိတ်', en: 'Bag' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အိတ်', en: 'Bag' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'ပေါင်', en: 'Pound' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture label' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစိုဓာတ် အမှတ်', en: 'Moisture label' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>
@@ -607,7 +607,7 @@ export function NewPurchasePage(): JSX.Element {
                             'hover:bg-surface-hover',
                           )}
                         >
-                          <Text role="primary">{moistureLabelText(bag.moisture_label)}</Text>
+                          <Text role="primary" className="font-medium text-warning">{moistureLabelText(bag.moisture_label)}</Text>
                         </button>
                       )}
                     </td>

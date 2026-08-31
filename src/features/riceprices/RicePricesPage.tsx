@@ -228,22 +228,22 @@ export function RicePricesPage(): JSX.Element {
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'အစဉ်', en: 'No' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-left">
-                    <Text role="header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: '၁၀၀ တင်း', en: 'Per 100 Tin' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: '၁၀၀ တင်း', en: 'Per 100 Tin' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: '၁ တင်း', en: 'Per Tin' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: '၁ တင်း', en: 'Per Tin' })}</Text>
                   </th>
                   <th className="px-2 py-2 text-right">
-                    <Text role="header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
+                    <Text role="header" className="font-semibold">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</Text>
                   </th>
                 </tr>
               </thead>

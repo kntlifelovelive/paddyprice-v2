@@ -204,14 +204,14 @@ export function HistoryPage() {
               <table data-testid="history-table" className="w-full min-w-[620px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface">
-                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အစဉ်', en: 'NO' })}</th>
-                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
-                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'အမည်', en: 'Name' })}</th>
-                    <th className="px-2 py-2 text-left font-medium text-content-header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
-                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'အိတ်', en: 'Bags' })}</th>
-                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
-                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'ငွေ', en: 'Amount' })}</th>
-                    <th className="px-2 py-2 text-right font-medium text-content-header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'အစဉ်', en: 'NO' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'အမည်', en: 'Name' })}</th>
+                    <th className="px-2 py-2 text-left font-semibold text-content-header">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'အိတ်', en: 'Bags' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'ငွေ', en: 'Amount' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
                   </tr>
                 </thead>
                 <tbody>
