@@ -414,12 +414,13 @@ export function ProfitLossPage(): JSX.Element {
                 </div>
               </Fragment>
             ))}
-            {/* Global Total footer (§8.1) — only mathematically meaningful sums.
+                        {/* Global Total footer (§8.1) — only mathematically meaningful sums.
                 Rendered as a single table row with the same 9-column structure
                 as the date-group tables so the totals align under Deduction /
                 Tin / Extra lb / Amount. */}
             <div className="border-t-2 border-border bg-accent/10 px-3 py-1.5">
-              <table className="w-full min-w-[880px] text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[880px] text-sm">
                 <tbody>
                   <tr>
                     <td className="w-10 px-2 py-1.5" />
@@ -452,8 +453,9 @@ export function ProfitLossPage(): JSX.Element {
                       </Text>
                     </td>
                   </tr>
-                </tbody>
+                                </tbody>
               </table>
+                            </div>
             </div>
           </>
         )}
