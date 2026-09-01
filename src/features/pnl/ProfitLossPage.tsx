@@ -24,9 +24,10 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { Database } from 'sql.js'
 
 import { useAppStore } from '@/app/state'
-import { decomposeDeductionPound, totalDeductionTinBreakdown } from '@/domain/paddy/tinBreakdown'
+import { decomposeDeductionPound } from '@/domain/paddy/tinBreakdown'
 import { computeDeductionAmount } from '@/domain/pnl/report'
 import { getDatabase } from '@/infrastructure/db'
+import { computeDeductionTotals } from './deductionTotals'
 import { getMoistureDeductionReport, getPnlReport } from '@/services/reports'
 import type { PnlReport, MoistureDeductionReport } from '@/services/reports'
 import { settingsService } from '@/services/settings'
@@ -120,33 +121,20 @@ export function ProfitLossPage(): JSX.Element {
   )
 
   // Total row (Moisture Deduction) — plain sums of the displayed column values.
-  // Deduction total comes from the domain report; Tin + Extra Lb are derived
-  // from the SUM of the underlying deduction pounds via the shared P2
-  // decomposition rule (aggregate first, decompose once — NOT summing each
-  // row's individually-decomposed tins/extra); amount = Σ deduction amounts
-  // (tin + extra valued at the stored price) — never the customers' purchase
-  // amounts.
-  const totals = useMemo(() => {
-    const deductionLbs = deductionEntries.map((e) => e.breakdown.total_deduction_lb)
-    const { tins, extraLb } = totalDeductionTinBreakdown(deductionLbs, state.lbPerTin)
-    let amount = 0
-    for (const entry of deductionEntries) {
-      const row = pnlByNo.get(entry.purchase_no)
-      if (row) {
-        amount += computeDeductionAmount(
-          entry.breakdown.total_deduction_lb,
-          row.price_per_tin,
-          state.lbPerTin,
-        )
-      }
-    }
-    return {
-      deductionLb: state.deduction?.total_deduction_lb ?? 0,
-      tins,
-      extraLb,
-      amount,
-    }
-  }, [deductionEntries, pnlByNo, state.deduction, state.lbPerTin])
+  // Deduction total comes from the domain report (Σ the same entries the table
+  // displays); tin/extra decompose each row's DEDUCTION pound via the existing
+  // P2 rule and sum the row results; amount = Σ deduction amounts (tin + extra
+  // valued at each row's stored price) — never the customers' purchase amounts.
+  const totals = useMemo(
+    () =>
+      computeDeductionTotals(
+        state.deduction?.total_deduction_lb,
+        deductionEntries,
+        (purchaseNo) => pnlByNo.get(purchaseNo)?.price_per_tin,
+        state.lbPerTin,
+      ),
+    [state.deduction, deductionEntries, pnlByNo, state.lbPerTin],
+  )
 
   if (state.error) {
     return (
@@ -294,10 +282,13 @@ export function ProfitLossPage(): JSX.Element {
       </section>
 
       {/* Moisture Deduction table (§8.1) — DEDUCTION pounds, NOT net pounds.
-          One customer row per purchase, grouped by date, with a global Total
-          footer. Price comes from the stored snapshot; Tin/Extra Lb decompose
-          the DEDUCTION pound and Amount values that tin+extra at the stored
-          price — never the customer's purchase amount. */}
+          ONE table: a full-width date header row + column header row + customer
+          rows per date group, and a global Total footer (<tfoot>) as the last
+          row of the SAME table — so the totals align under Deduction / Tin /
+          Extra lb / Amount and scroll together with the rows (no clipping or
+          drift on portrait). Price comes from the stored snapshot; Tin/Extra Lb
+          decompose the DEDUCTION pound and Amount values that tin+extra at the
+          stored price — never the customer's purchase amount. */}
       <section className="rounded-lg border border-border bg-surface">
         <div className="border-b border-border p-3">
           <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
@@ -311,19 +302,23 @@ export function ProfitLossPage(): JSX.Element {
             </Text>
           </div>
         ) : (
-          <>
-            {deductionGroups.map((group) => (
-              <Fragment key={group.date}>
-                {/* Date group header */}
-                <div className="border-b border-border bg-accent/10 px-3 py-1.5">
-                  <Text as="h3" role="header" className="text-sm font-semibold text-accent-hover">
-                    {formatDateDMY(group.date)}
-                  </Text>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[880px] text-sm">
-                    <thead>
-                      <tr className="border-b border-border bg-surface">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[880px] text-sm">
+              {deductionGroups.map((group) => (
+                <Fragment key={group.date}>
+                <tbody>
+                  {/* Date group header — a full-width row of the SAME table as
+                      the data rows and the Total footer (one scroll context,
+                      aligned columns). */}
+                  <tr className="border-b border-border bg-accent/10">
+                    <th colSpan={9} className="px-3 py-1.5 text-left">
+                      <Text as="h3" role="header" className="text-sm font-semibold text-accent-hover">
+                        {formatDateDMY(group.date)}
+                      </Text>
+                    </th>
+                  </tr>
+                  {/* Column header row */}
+                  <tr className="border-b border-border bg-surface">
                         <th className="w-10 px-2 py-2 text-right">
                           <Text role="header" className="font-semibold text-accent">{t({ my: 'အစဉ်', en: 'No' })}</Text>
                         </th>
@@ -350,11 +345,9 @@ export function ProfitLossPage(): JSX.Element {
                         </th>
                         <th className="px-2 py-2 text-right">
                           <Text role="header" className="font-semibold text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</Text>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.items.map(({ item: entry, no }) => {
+                  </th>
+                </tr>
+                  {group.items.map(({ item: entry, no }) => {
                         const row = pnlByNo.get(entry.purchase_no)
                         const parts = decomposeDeductionPound(
                           entry.breakdown.total_deduction_lb,
@@ -405,23 +398,15 @@ export function ProfitLossPage(): JSX.Element {
                             </td>
                           </tr>
                         )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </Fragment>
-            ))}
-                        {/* Global Total footer (§8.1) — aggregate-first sums: Deduction
-                total from the domain report; Tin + Extra Lb derived from the
-                SUM of the underlying deduction pounds via the shared P2 rule;
-                Amount = Σ row deduction amounts. The aligned table footer
-                keeps the totals under their columns, and a responsive summary
-                block below stays readable on Android portrait (no overflow). */}
-            <div className="border-t-2 border-border bg-accent/10 px-3 py-1.5">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[880px] text-sm">
-                <tbody>
-                  <tr>
+                    })}
+                  </tbody>
+                </Fragment>
+              ))}
+              {/* Global Total footer (§8.1) — the last row of the SAME table as
+                  the date groups, so the totals align under Deduction / Tin /
+                  Extra lb / Amount and scroll together with the rows. */}
+              <tfoot>
+                <tr className="border-t-2 border-border bg-accent/10">
                     <td className="w-10 px-2 py-1.5" />
                     <td className="px-2 py-1.5">
                       <Text role="header" className="font-semibold text-accent">
@@ -451,31 +436,10 @@ export function ProfitLossPage(): JSX.Element {
                         {formatMMK(totals.amount)}
                       </Text>
                     </td>
-                  </tr>
-                                </tbody>
-              </table>
-                            </div>
-              {/* Responsive total summary — portable, portrait-safe. */}
-              <div className="grid grid-cols-2 gap-2 px-1 sm:grid-cols-4">
-                <SummaryStat
-                  label={t({ my: 'စုစုပေါင်း နုတ်ယူမှု ပေါင်', en: 'Total Deduction Lb' })}
-                  value={formatNumber(totals.deductionLb)}
-                />
-                <SummaryStat
-                  label={t({ my: 'စုစုပေါင်း တင်း', en: 'Total Tin' })}
-                  value={formatNumber(totals.tins)}
-                />
-                <SummaryStat
-                  label={t({ my: 'စုစုပေါင်း ပိုပေါင်', en: 'Total Extra lb' })}
-                  value={formatNumber(totals.extraLb)}
-                />
-                <SummaryStat
-                  label={t({ my: 'စုစုပေါင်း ငွေ', en: 'Total Amount' })}
-                  value={formatMMK(totals.amount)}
-                />
-              </div>
-            </div>
-          </>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
       </section>
     </div>

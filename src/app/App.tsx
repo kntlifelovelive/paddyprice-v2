@@ -58,7 +58,9 @@ function BootstrapErrorScreen({ message }: { message: string }) {
 export default function App() {
   const dbReady = useAppStore((s) => s.dbReady)
   const dbError = useAppStore((s) => s.dbError)
-  const appLock = useAppLock()
+  // The App Lock gate builds its service only once the DB is ready — the
+  // security config (App Lock / Pattern / PIN) lives in the settings table.
+  const appLock = useAppLock({ dbReady })
 
   let content: ReactNode
   if (dbError) {

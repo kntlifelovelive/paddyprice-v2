@@ -219,13 +219,6 @@ export function SettingsPage(): JSX.Element {
 
   return (
     <div className="flex min-h-0 flex-col min-[520px]:h-[calc(100dvh-5rem)]" data-page="settings">
-            {/* Title — Android System Settings style, no card wrapper */}
-      <div className="shrink-0 px-4 py-3">
-        <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
-          {t({ my: 'ဆက်တင်', en: 'Settings' })}
-        </Text>
-      </div>
-
       {saveMessage && (
         <div className="mx-4 mt-3 rounded border border-border bg-surface p-2">
           <Text role="primary">{saveMessage}</Text>

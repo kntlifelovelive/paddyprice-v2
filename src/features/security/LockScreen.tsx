@@ -4,8 +4,11 @@
  *  - Pattern (3x3 grid, draw order is the secret)
  *  - PIN (4–8 digits)
  *
- * Only methods with a configured credential are selectable. The lock screen
- * itself contains NO business logic; everything is delegated to the
+ * Only methods with a configured credential are selectable. When BOTH are
+ * configured, a chooser screen shows first ("PadDy" + Locked + choice
+ * buttons) and the chosen method's lock UI opens on tap; with exactly ONE
+ * method the lock UI opens directly (confirmed reference behavior). The lock
+ * screen itself contains NO business logic; everything is delegated to the
  * `useAppLock` hook (in this file's sibling module).
  */
 import { useState } from 'react'
@@ -14,6 +17,9 @@ import { Text, cn, LockIcon } from '@/shared/ui'
 import { PatternPad } from './PatternPad'
 
 export type UnlockMethod = 'pattern' | 'pin'
+
+/** Chooser first (both methods) or straight into the single method's UI. */
+type LockMode = 'choose' | UnlockMethod
 
 export interface LockScreenProps {
   hasPattern: boolean
@@ -44,7 +50,10 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
     props.initialMethod && availableMethods.includes(props.initialMethod)
       ? props.initialMethod
       : availableMethods[0] ?? 'pin'
-  const [method, setMethod] = useState<UnlockMethod>(initial)
+  // BOTH methods configured → chooser screen first; ONE → straight to its UI.
+  const [method, setMethod] = useState<LockMode>(
+    availableMethods.length > 1 ? 'choose' : initial,
+  )
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -78,15 +87,54 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
           <div className="rounded-full bg-surface-hover p-3 text-accent">
             <LockIcon size="h-7 w-7" aria-label="Locked" />
           </div>
-          <Text as="h1" role="header" className="text-lg font-semibold">
-            {t({ my: 'လော့ခ်ချထားသည်', en: 'App Locked' })}
-          </Text>
-          <Text role="secondary" className="text-sm">
-            {t({ my: 'ဆက်လက်အသုံးပြုရန် ဖွင့်ပါ', en: 'Unlock to continue' })}
-          </Text>
+          {method === 'choose' ? (
+            <>
+              <Text as="h1" role="header" className="text-lg font-semibold tracking-wide">
+                {t({ my: 'PadDy', en: 'PadDy' })}
+              </Text>
+              <Text role="secondary" className="text-sm">
+                {t({ my: 'လော့ခ်ပြုလုပ်ထားသည်', en: 'Locked' })}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text as="h1" role="header" className="text-lg font-semibold">
+                {t({ my: 'လော့ခ်ချထားသည်', en: 'App Locked' })}
+              </Text>
+              <Text role="secondary" className="text-sm">
+                {t({ my: 'ဆက်လက်အသုံးပြုရန် ဖွင့်ပါ', en: 'Unlock to continue' })}
+              </Text>
+            </>
+          )}
         </div>
 
-        {availableMethods.length > 1 && (
+        {method === 'choose' && (
+          <div className="mt-6 flex flex-col gap-3">
+            <Text role="secondary" className="text-center text-sm">
+              {t({ my: 'ဆက်ရန် စစ်ဆေးမှု ရွေးပါ', en: 'Choose an unlock method' })}
+            </Text>
+            {props.hasPattern && (
+              <button
+                type="button"
+                onClick={() => { setMethod('pattern'); setError(null) }}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-content-primary transition-colors hover:bg-surface-hover"
+              >
+                {t({ my: 'ပုံစံဖြင့်ဖွင့်', en: 'Unlock with Pattern' })}
+              </button>
+            )}
+            {props.hasPin && (
+              <button
+                type="button"
+                onClick={() => { setMethod('pin'); setError(null); setPin('') }}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm font-medium text-content-primary transition-colors hover:bg-surface-hover"
+              >
+                {t({ my: 'PIN ဖြင့်ဖွင့်', en: 'Unlock with PIN' })}
+              </button>
+            )}
+          </div>
+        )}
+
+        {method !== 'choose' && availableMethods.length > 1 && (
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
             {props.hasPattern && (
               <button

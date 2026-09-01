@@ -66,26 +66,3 @@ export function decomposeDeductionPound(
   const extraLb = deductionLb - tins * lbPerTin;
   return { tins, extraLb };
 }
-
-/**
- * §8.1 — aggregate a list of deduction-pound values into the TOTAL Tin + Extra
- * Lb representation used by the Moisture Deduction table's Total row.
- *
- * The total tin/extra MUST be derived from the SUM of the underlying deduction
- * pounds (then decomposed with the shared P2 rule) — NOT by summing each row's
- * individually-decomposed tins/extra. Summing per-row decompositions is not
- * algebraically identical (e.g. `2 Tins + 48 lb` twice is `5 Tins + 44 lb`,
- * not `4 Tins + 96 lb`), which is exactly the incorrect total this replaces.
- *
- * Aggregates the underlying deduction pounds first, then applies the existing
- * `decomposeDeductionPound` rule ONCE to the aggregate — mathematically
- * consistent with the P2 row-level concept and independent of per-row prices.
- */
-export function totalDeductionTinBreakdown(
-  deductionLbs: readonly number[],
-  lbPerTin: number,
-): TinBreakdown {
-  let totalLb = 0;
-  for (const lb of deductionLbs) totalLb += lb;
-  return decomposeDeductionPound(totalLb, lbPerTin);
-}

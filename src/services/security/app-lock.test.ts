@@ -356,3 +356,49 @@ describe('App Lock PIN round-trip persistence (Settings → verify → change �
     expect(service.isLocked()).toBe(true)
   })
 })
+
+describe('App Lock gate lifecycle (startup locked; Settings rebuilds keep an unlocked session)', () => {
+  it('STARTS locked when App Lock is enabled with a credential (reference initialize())', () => {
+    const { service } = makeService()
+    expect(service.isLocked()).toBe(true)
+  })
+
+  it('starts UNLOCKED only via startUnlocked (session carry-over) and relocks via Lock Now / timeout', () => {
+    // The gate rebuilds its service on Settings changes while the session is
+    // unlocked — that rebuild must NOT lock the running session.
+    const { service } = makeService({ startUnlocked: true })
+    expect(service.isLocked()).toBe(false)
+
+    // Lock Now still reaches the carried-over session.
+    service.lockNow()
+    expect(service.isLocked()).toBe(true)
+
+    // And the background timeout still relocks a carried-over session.
+    const { service: carried, advance: advanceCarried } = makeService({
+      startUnlocked: true,
+      config: baseConfig({ timeout: '60' }),
+    })
+    carried.onBackground()
+    advanceCarried(61_000)
+    carried.onForeground()
+    expect(carried.isLocked()).toBe(true)
+  })
+
+  it('fail-safes still hold: enabled with NO loaded verifier never locks (startup or carried-over)', () => {
+    // Enabled + credential in config but NO verifier loaded → must never lock,
+    // whether starting locked or carried-over unlocked.
+    const { service } = makeService({ pinVerifier: null })
+    expect(service.isLocked()).toBe(true) // pattern verifier exists → locks
+    const { service: noVerifiers } = makeService({
+      patternVerifier: null,
+      pinVerifier: null,
+    })
+    expect(noVerifiers.isLocked()).toBe(false)
+    const { service: carriedNoVerifiers } = makeService({
+      patternVerifier: null,
+      pinVerifier: null,
+      startUnlocked: true,
+    })
+    expect(carriedNoVerifiers.isLocked()).toBe(false)
+  })
+})

@@ -165,6 +165,15 @@ export interface AppLockServiceOptions {
   /** Fingerprint service (optional — omitted on web/desktop test contexts). */
   biometric?: BiometricService
   now?: () => number
+  /**
+   * Start already-unlocked (session carry-over). The app STARTS locked when
+   * the gate builds at startup (default `false` — confirmed reference
+   * behavior); the gate rebuilds its service on Settings changes while the
+   * session is unlocked, and that must NOT lock the running session
+   * (reference: `setEnabled` keeps `locked` unchanged; the lock engages on
+   * next startup, after a background timeout, or via Lock Now).
+   */
+  startUnlocked?: boolean
 }
 
 export interface AppLockService {
@@ -187,7 +196,7 @@ export interface AppLockService {
 export function createAppLockService(options: AppLockServiceOptions): AppLockService {
   const { config, patternVerifier, pinVerifier, biometric, now = Date.now } = options
   const throttle = createAttemptThrottle()
-  let unlocked = false
+  let unlocked = options.startUnlocked === true
   let backgroundedAt: number | null = null
   const listeners = new Set<(state: AppLockState) => void>()
 
