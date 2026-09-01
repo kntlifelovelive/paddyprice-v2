@@ -16,6 +16,7 @@
     "android:assemble:release": "cd android && ./gradlew assembleRelease --no-daemon"
   },
   "dependencies": {
+    "@capacitor/filesystem": "^8.1.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.2",
     "react": "^18.3.1",
