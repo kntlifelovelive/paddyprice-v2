@@ -351,8 +351,18 @@ export function DashboardPage(): JSX.Element {
         : t({ my: 'ဒီနှစ်', en: 'This Year' })
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="dashboard">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
-        {t({ my: 'ပင်မစာမျက်နှာ', en: 'Dashboard' })}
+      {/* Home motto — replaces the plain "Dashboard" title. Serif italic reads
+          as a quote; centered, fluid text sizes + wrapping keep it screen-fit
+          on Android portrait and web without any webfont dependency
+          (offline-first — uses the system serif stack). */}
+      <Text
+        as="h1"
+        role="header"
+        className="text-center font-serif text-base italic leading-snug tracking-wide text-accent-hover sm:text-lg md:text-xl"
+      >
+        <span aria-hidden="true" className="text-accent">“</span>
+        Love and wisdom are the greatest treasures of life.
+        <span aria-hidden="true" className="text-accent">”</span>
       </Text>
 
       {/* Period toggle + paddy-type filter — reference Home control row
