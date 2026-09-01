@@ -11,8 +11,12 @@
  * All updates go through `services/settings` (single-writer rule, ARCHITECTURE §3.7).
  * Step 11 §1 — circular selection indicators on choice rows.
  * Step 11 §5 — theme choice immediately applies via `applyTheme`/`data-theme`.
+ * Responsive (reference SettingsPage concept): below 520px the master-detail
+ * panes collapse to a menu → detail flow with a back button; above it both
+ * panes sit side-by-side and scroll internally, so nothing overflows on
+ * Android portrait phones/tablets.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useAppStore } from '@/app/state'
 import { MOISTURE_LABEL_OPTIONS, type MoistureLabel, type MoistureRates } from '@/domain/paddy/moisture'
@@ -23,7 +27,7 @@ import { applyFontSize, applyTheme, FONT_SIZE_LABELS, FONT_SIZE_SCALE, type Font
 import { normalizeTheme, THEMES, type ThemeId } from '@/shared/theme/themes'
 import { useT } from '@/shared/hooks'
 import type { Settings } from '@/types'
-import { Text, cn } from '@/shared/ui'
+import { BackIcon, Text, cn } from '@/shared/ui'
 import { SecurityTab } from '@/features/security/SecurityTab'
 import { SettingsNavItem, SettingsSection, SettingsRow } from '@/shared/ui/settings'
 import {
@@ -89,6 +93,11 @@ export function SettingsPage(): JSX.Element {
   const [draft, setDraft] = useState<DraftState | null>(null)
   const [tab, setTab] = useState<Tab>('theme')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  // Reference master-detail behavior (~/paddyprice SettingsPage): below the
+  // 520px breakpoint only ONE pane shows at a time (menu ↔ detail, with a
+  // back button); ≥520px both panes are always visible side-by-side.
+  const [mobilePane, setMobilePane] = useState<'menu' | 'detail'>('menu')
+  const detailRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!dbReady) return
@@ -209,7 +218,7 @@ export function SettingsPage(): JSX.Element {
   ]
 
   return (
-    <div className="flex h-full flex-col" data-page="settings">
+    <div className="flex min-h-0 flex-col min-[520px]:h-[calc(100dvh-5rem)]" data-page="settings">
             {/* Title — Android System Settings style, no card wrapper */}
       <div className="shrink-0 px-4 py-3">
         <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
@@ -223,12 +232,20 @@ export function SettingsPage(): JSX.Element {
         </div>
       )}
 
-      {/* Two-panel layout */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Two-panel layout — pane switching below 520px (one pane at a time,
+          page scrolls naturally); side-by-side internally-scrolling panes above
+          it (reference master-detail concept). */}
+      <div className="flex min-h-0 flex-1 min-[520px]:overflow-hidden">
         {/* Left nav rail — Android system settings style */}
         <nav
           aria-label={t({ my: 'ဆက်တင် အပိုင်းများ', en: 'Settings sections' })}
-          className="w-64 shrink-0 overflow-y-auto border-r border-border bg-surface px-3 py-4"
+          className={cn(
+            'w-full shrink-0 bg-surface px-3 py-4',
+            mobilePane === 'menu' ? 'block' : 'hidden',
+            'min-[520px]:block min-[520px]:w-[40%] min-[520px]:max-w-[21rem] min-[520px]:overflow-y-auto',
+            'min-[520px]:border-r min-[520px]:border-border min-[520px]:pr-4',
+            'lg:w-[36%] lg:max-w-[22rem]',
+          )}
         >
           {NAV_GROUPS.map((group) => (
             <div key={group.label} className="mt-5 first:mt-1">
@@ -243,7 +260,11 @@ export function SettingsPage(): JSX.Element {
                     title={item.title}
                     subtitle={item.subtitle}
                     selected={tab === item.id}
-                    onClick={() => setTab(item.id)}
+                    onClick={() => {
+                      setTab(item.id)
+                      setMobilePane('detail')
+                      detailRef.current?.scrollTo({ top: 0 })
+                    }}
                   />
                 ))}
               </div>
@@ -252,7 +273,23 @@ export function SettingsPage(): JSX.Element {
         </nav>
 
                 {/* Right detail panel */}
-        <div className="min-w-0 flex-1 overflow-y-auto bg-surface px-4 py-4">
+        <div
+          ref={detailRef}
+          className={cn(
+            'min-h-0 min-w-0 flex-1 bg-surface px-4 py-4',
+            mobilePane === 'detail' ? 'block' : 'hidden',
+            'min-[520px]:block min-[520px]:overflow-y-auto',
+          )}
+        >
+          {/* Mobile back button — reference detail-pane concept */}
+          <button
+            type="button"
+            onClick={() => setMobilePane('menu')}
+            className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-accent min-[520px]:hidden"
+          >
+            <BackIcon size="h-4 w-4" aria-label={t({ my: 'နောက်သို့', en: 'Back' })} />
+            {t({ my: 'ဆက်တင်စာရင်း', en: 'All settings' })}
+          </button>
           {tab === 'company' && (
             <CompanyTab draft={draft} setDraft={setDraft} commit={commit} t={t} />
           )}

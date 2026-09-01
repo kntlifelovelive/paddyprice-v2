@@ -7,6 +7,7 @@ import {
   clearPattern,
   clearPin,
   createAppLockService,
+  emitSecurityEvent,
   hasAnyCredential,
   readSecurityConfig,
   savePattern,
@@ -20,10 +21,11 @@ import {
   setFingerprintEnabled,
   setSecurityEnabled,
   setSecurityTimeout,
+  subscribeSecurityEvent,
   type AppLockServiceOptions,
 } from './app-lock'
 import type { SecurityConfig, BiometricAdapter } from '@/types'
-import { createVerifier, patternToSecret } from './verifier'
+import { createVerifier, patternToSecret, verifySecret } from './verifier'
 import { createBiometricService } from './biometric'
 
 let patternVer: string
@@ -283,5 +285,74 @@ describe('App Lock runtime service (lock predicate, throttling, auto-lock)', () 
     unsubscribe()
     await service.unlockWithPin('9999') // already unlocked → no notification
     expect(states).toEqual([false, true])
+  })
+})
+
+describe('Security change bus (framework-light gate refresh hook)', () => {
+  it('notifies subscribers on emitted events until unsubscribed', () => {
+    const events: string[] = []
+    const unsubscribe = subscribeSecurityEvent((e) => events.push(e))
+    emitSecurityEvent('changed')
+    emitSecurityEvent('lock-now')
+    unsubscribe()
+    emitSecurityEvent('changed')
+    expect(events).toEqual(['changed', 'lock-now'])
+  })
+})
+
+describe('App Lock PIN round-trip persistence (Settings → verify → change → remove)', () => {
+  let db: Database
+  afterAll(() => closeTestDatabase())
+
+  it('enable, set, verify correct/wrong, change, then remove (auto-disables when last)', async () => {
+    db = await createTestDatabase()
+    setSecurityEnabled(db, true)
+    expect(readSecurityConfig(db).enabled).toBe(true)
+
+    // Set PIN → verifier stored, not the raw PIN.
+    await savePin(db, '1234')
+    expect(readSecurityConfig(db).hasPin).toBe(true)
+    expect(getSetting(db, SECURITY_KEY_PIN)).not.toContain('1234')
+    expect(await verifySecret('1234', getSetting(db, SECURITY_KEY_PIN))).toBe(true)
+    expect(await verifySecret('9999', getSetting(db, SECURITY_KEY_PIN))).toBe(false)
+
+    // Change PIN → old no longer works, new does.
+    await savePin(db, '5678')
+    expect(await verifySecret('1234', getSetting(db, SECURITY_KEY_PIN))).toBe(false)
+    expect(await verifySecret('5678', getSetting(db, SECURITY_KEY_PIN))).toBe(true)
+
+    // Remove the last credential → App Lock auto-disables (fail-safe).
+    clearPin(db)
+    expect(readSecurityConfig(db).hasPin).toBe(false)
+    expect(readSecurityConfig(db).enabled).toBe(false)
+  })
+
+  it('reload/restart: the gate rebuilds from persisted config and locks again', async () => {
+    db = await createTestDatabase()
+    setSecurityEnabled(db, true)
+    await savePin(db, '4321')
+
+    // Simulate an app restart: the gate reads the persisted config + verifiers
+    // exactly as `useAppLock.buildService()` does on mount, then constructs a
+    // fresh service — it must start LOCKED and unlock only with the PIN.
+    const config = readSecurityConfig(db)
+    const service = createAppLockService({
+      config,
+      patternVerifier: getSetting(db, SECURITY_KEY_PATTERN),
+      pinVerifier: getSetting(db, SECURITY_KEY_PIN),
+    })
+    expect(service.isLocked()).toBe(true)
+    await expect(service.unlockWithPin('4321')).resolves.toBe(true)
+    expect(service.isLocked()).toBe(false)
+
+    // A wrong PIN on the restored session must not unlock, and Lock Now must
+    // re-lock the restored session.
+    service.lock()
+    await expect(service.unlockWithPin('0000')).resolves.toBe(false)
+    expect(service.isLocked()).toBe(true)
+    await expect(service.unlockWithPin('4321')).resolves.toBe(true)
+    expect(service.isLocked()).toBe(false)
+    service.lockNow()
+    expect(service.isLocked()).toBe(true)
   })
 })

@@ -6,36 +6,58 @@
  * - Tin + Extra Lb decompose that net pound via the domain helper.
  * - Newest purchase first (DAO order: date DESC, id DESC) with visible NO in
  *   descending order — a UI convention only; stored ids/seq are untouched.
- * - Rows are grouped by date (newest date first) with a per-day summary row.
+ * - Rows are grouped by date with a per-day summary row; a reference-concept
+ *   sort toggle flips newest/oldest first (view state only).
+ * - Reference-concept toolbar/filter bar (~/paddyprice HistoryPage): customer
+ *   filter (navigates to /history/:farmerId), paddy-type filter, Bag Weights
+ *   PDF (existing P2 service), New Purchase link, date-range inputs, Clear,
+ *   sort toggle. All filters are local view state over the loaded records.
  * - Per-row actions: Edit (open the existing New Purchase page pre-filled),
- *   PDF (generate the voucher PDF), Print (open the thermal receipt).
+ *   PDF (generate the voucher PDF), Print (open the thermal receipt),
+ *   Delete (modal ConfirmDialog confirmation, as in the reference).
  * - Semantic theme text tokens only; no hard-coded colors.
  */
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { Database } from 'sql.js'
 
 import { getDatabase } from '@/infrastructure/db'
 import { deletePurchase } from '@/infrastructure/db/dao/purchases'
+import * as farmersDao from '@/infrastructure/db/dao/farmers'
+import * as riceTypesDao from '@/infrastructure/db/dao/riceTypes'
 import { getHistoryRecords } from '@/services/reports'
 import { settingsService } from '@/services/settings'
-import { formatDateDMY, formatMMK, formatNumber } from '@/shared/format'
+import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
+import {
+  ConfirmDialog,
+  DeleteIcon,
+  EditIcon,
+  PdfIcon,
+  PlusIcon,
+  PrintIcon,
+  SpinnerIcon,
+  Text,
+} from '@/shared/ui'
 import type { PurchaseRecord } from '@/types'
-import { generateVoucherPdf } from '@/services/pdf/service'
+import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
 import { printReceipt } from '@/services/print/service'
 import type { PrintReceipt } from '@/types/print'
 
 interface HistoryData {
   records: PurchaseRecord[]
   lbPerTin: number
+  /** Toolbar dropdown sources (reference HistoryPage concept). */
+  farmers: ReturnType<typeof farmersDao.listFarmers>
+  riceTypes: ReturnType<typeof riceTypesDao.listRiceTypes>
 }
 
 function loadHistory(db: Database): HistoryData {
   return {
     records: getHistoryRecords(db),
     lbPerTin: settingsService.lbPerTin(db),
+    farmers: farmersDao.listFarmers(db),
+    riceTypes: riceTypesDao.listRiceTypes(db, false),
   }
 }
 
@@ -78,6 +100,18 @@ export function HistoryPage() {
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   // Bumped after a delete so the data memo re-reads from the database.
   const [reloadKey, setReloadKey] = useState(0)
+  // Reference-concept view state — purely local UI filtering/sorting over the
+  // already-loaded records. No DAO, service, or business-logic change.
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [paddyTypeFilter, setPaddyTypeFilter] = useState('')
+  const [sortDesc, setSortDesc] = useState(true)
+  /** Toolbar customer filter — selecting one navigates to the per-farmer
+   * History drilldown (`/history/:farmerId`), as in the reference project. */
+  const [farmerSelect, setFarmerSelect] = useState('')
+  const [bagPdfBusy, setBagPdfBusy] = useState(false)
+  // Reference UI concept: deletes are confirmed with a modal ConfirmDialog.
+  const [deleteTarget, setDeleteTarget] = useState<PurchaseRecord | null>(null)
   const data = useMemo<{ data: HistoryData | null; error: string | null }>(() => {
     try {
       return { data: loadHistory(getDatabase()), error: null }
@@ -86,17 +120,43 @@ export function HistoryPage() {
     }
   }, [reloadKey])
 
-  /** Delete via the existing purchase DAO, guarded by a confirmation. */
+  /** Delete via the existing purchase DAO — confirmed by ConfirmDialog. */
   function handleDelete(record: PurchaseRecord): void {
-    const s = record.snapshot
-    const message = `${t({ my: 'ဤဝယ်ယူမှုအား ဖျက်မှာလား?', en: 'Delete this purchase?' })} (${s.purchase_no})`
-    if (!window.confirm(message)) return
     try {
-      deletePurchase(getDatabase(), s.id)
+      deletePurchase(getDatabase(), record.snapshot.id)
       setReloadKey((k) => k + 1)
       setFlash({ kind: 'ok', text: t({ my: 'ဖျက်ပြီးပါပြီ', en: 'Purchase deleted' }) })
     } catch (err) {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Delete failed' })
+    } finally {
+      setDeleteTarget(null)
+    }
+  }
+
+  /**
+   * Reference-concept "Bag Weights PDF" toolbar action, backed by P2's
+   * existing bag-weights PDF service. Requires a selected customer (as in
+   * the reference); the current date-range and paddy-type filters narrow it.
+   */
+  async function handleBagWeightsPdf(): Promise<void> {
+    if (farmerSelect === '') {
+      setFlash({ kind: 'err', text: t({ my: 'ကျေးဇူးပြု၍ ဝယ်ယူသည့်သူ ရွေးပါ', en: 'Please select a customer first.' }) })
+      return
+    }
+    setBagPdfBusy(true)
+    try {
+      await generateBagWeightDetailsPdf(
+        Number(farmerSelect),
+        paddyTypeFilter === '' ? null : Number(paddyTypeFilter),
+        dateFrom,
+        dateTo,
+        0,
+      )
+      setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PDF failed' })
+    } finally {
+      setBagPdfBusy(false)
     }
   }
 
@@ -148,45 +208,153 @@ export function HistoryPage() {
 
   const { records, lbPerTin } = data.data
 
-  if (records.length === 0) {
-    return (
-      <div className="p-3 sm:p-4" data-page="history">
-        <Text as="h1" role="header" className="mb-3 text-lg font-semibold">
-          {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
-        </Text>
-        <div className="rounded-lg border border-border bg-surface p-6 text-center text-content-muted">
-          {t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}
-        </div>
-      </div>
-    )
-  }
+  /** Purchase date (YYYY-MM-DD part) of a record. */
+  const dateOf = (r: PurchaseRecord): string => r.snapshot.date.split('T')[0] ?? r.snapshot.date
 
-  // Group records by `date` (YYYY-MM-DD), newest date first. The date is
-  // already a sortable YYYY-MM-DD string, so group keys sort lexically.
+  // Reference-concept local filtering: date range + paddy type. Applied to
+  // the already-loaded records only — view state, never persistence.
+  const filtered = records.filter((r) => {
+    const d = dateOf(r)
+    if (dateFrom && d < dateFrom) return false
+    if (dateTo && d > dateTo) return false
+    if (paddyTypeFilter !== '' && r.snapshot.rice_type_id !== Number(paddyTypeFilter)) return false
+    return true
+  })
+
+  // Group records by `date` (YYYY-MM-DD). The date is already a sortable
+  // YYYY-MM-DD string, so group keys sort lexically; the reference-concept
+  // sort toggle flips newest/oldest first.
   const groups = new Map<string, PurchaseRecord[]>()
-  for (const record of records) {
-    const date = record.snapshot.date.split('T')[0] ?? record.snapshot.date
+  for (const record of filtered) {
+    const date = dateOf(record)
     const list = groups.get(date) ?? []
     list.push(record)
     groups.set(date, list)
   }
-  const sortedDates = Array.from(groups.keys()).sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+  const sortedDates = Array.from(groups.keys()).sort((a, b) => {
+    if (a === b) return 0
+    return a < b ? (sortDesc ? 1 : -1) : sortDesc ? -1 : 1
+  })
 
   return (
     <div className="space-y-3 p-3 sm:p-4" data-page="history">
-      <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
-        {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
-      </Text>
+      {/* Title + toolbar (reference HistoryPage concept) */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
+          {t({ my: 'အရောင်းမှတ်တမ်း', en: 'History' })}
+        </Text>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Customer filter — navigates to the per-farmer drilldown */}
+          <select
+            className="rounded border border-border bg-background px-2 py-1.5 text-sm"
+            value={farmerSelect}
+            aria-label={t({ my: 'ဝယ်ယူသည့်သူ', en: 'Filter by customer' })}
+            onChange={(e) => {
+              const value = e.target.value
+              setFarmerSelect(value)
+              if (value !== '') navigate(`/history/${value}`)
+            }}
+          >
+            <option value="">{t({ my: '— ဝယ်ယူသည့်သူ —', en: '— Customers —' })}</option>
+            {data.data.farmers.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+          {/* Paddy type filter — narrows the table and the Bag Weights PDF */}
+          <select
+            className="rounded border border-border bg-background px-2 py-1.5 text-sm"
+            value={paddyTypeFilter}
+            aria-label={t({ my: 'စပါးအမျိုးအစား', en: 'Filter by paddy type' })}
+            onChange={(e) => setPaddyTypeFilter(e.target.value)}
+          >
+            <option value="">{t({ my: '— အမျိုးအစား အားလုံး —', en: '— All Paddy Types —' })}</option>
+            {data.data.riceTypes.map((rt) => (
+              <option key={rt.id} value={rt.id}>
+                {rt.name}
+              </option>
+            ))}
+          </select>
+          {/* Bag Weights PDF — P2's existing bag-weights PDF service */}
+          <button
+            type="button"
+            disabled={farmerSelect === '' || bagPdfBusy}
+            title={
+              farmerSelect === ''
+                ? t({ my: 'ဝယ်ယူသည့်သူ ရွေးပါ', en: 'Select a customer first' })
+                : t({ my: 'အိတ် အလေးချိန် PDF', en: 'Bag Weights PDF' })
+            }
+            onClick={() => void handleBagWeightsPdf()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+          >
+            {bagPdfBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
+            {t({ my: 'အိတ် အလေးချိန် PDF', en: 'Bag Weights PDF' })}
+          </button>
+          {/* New Purchase (reference toolbar link, plus icon) */}
+          <Link
+            to="/purchase/new"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-text hover:bg-accent-hover"
+          >
+            <PlusIcon size="h-4 w-4" />
+            {t({ my: 'အသစ်ဝယ်', en: 'New Purchase' })}
+          </Link>
+        </div>
+      </div>
       {flash && (
         <div role="status" className={`rounded border px-3 py-1.5 text-sm ${flash.kind === 'ok' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>
           {flash.text}
         </div>
       )}
+      {/* Filter bar: date range + sort order (reference concept) */}
+      <section className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface p-3 text-sm">
+        <label className="flex items-center gap-2">
+          <Text role="secondary">{t({ my: 'ရက်စွဲ အစ', en: 'Date From' })}</Text>
+          <input
+            type="date"
+            className="rounded border border-border bg-background px-2 py-1 font-mono"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <Text role="secondary">{t({ my: 'ရက်စွဲ အဆုံး', en: 'Date To' })}</Text>
+          <input
+            type="date"
+            className="rounded border border-border bg-background px-2 py-1 font-mono"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </label>
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFrom('')
+              setDateTo('')
+            }}
+            className="rounded px-2 py-1 text-xs font-medium text-danger hover:bg-danger/10"
+          >
+            {t({ my: 'ဖျက်သုတ်', en: 'Clear' })}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setSortDesc((d) => !d)}
+          className="ml-auto rounded-lg border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-hover"
+        >
+          {sortDesc
+            ? t({ my: 'နောက်ဆုံး အရင် ↓', en: 'Newest first ↓' })
+            : t({ my: 'အသည်း အရင် ↑', en: 'Oldest first ↑' })}
+        </button>
+      </section>
+
       {sortedDates.map((date) => {
         const group = groups.get(date) ?? []
         const gBags = group.reduce((s, r) => s + r.snapshot.total_bags, 0)
         const gPound = group.reduce((s, r) => s + r.snapshot.net_pound, 0)
         const gAmount = group.reduce((s, r) => s + r.snapshot.total_amount, 0)
+        const gTins = group.reduce((s, r) => s + r.snapshot.total_tins, 0)
         return (
           <section key={date} className="overflow-hidden rounded-lg border border-border bg-surface">
             <div className="flex items-center justify-between border-b border-border bg-accent/10 px-3 py-2">
@@ -197,6 +365,7 @@ export function HistoryPage() {
                 <span>{group.length} × {t({ my: 'အရောင်း', en: 'sales' })}</span>
                 <span>{formatNumber(gBags)} {t({ my: 'အိတ်', en: 'bags' })}</span>
                 <span>{formatNumber(gPound)} {t({ my: 'ပေါင်', en: 'lb' })}</span>
+                <span>{formatTins(gTins)} {t({ my: 'တင်း', en: 'tins' })}</span>
                 <span className="font-semibold text-content-secondary">{formatMMK(gAmount)}</span>
               </div>
             </div>
@@ -208,8 +377,10 @@ export function HistoryPage() {
                     <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'အရောင်းနံပါတ်', en: 'Purchase No' })}</th>
                     <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'အမည်', en: 'Name' })}</th>
                     <th className="px-2 py-2 text-left font-semibold text-content-header text-accent">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'စျေးနှုန်း', en: 'Price' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'အိတ်', en: 'Bags' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'တင်း', en: 'Tins' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
                   </tr>
@@ -235,9 +406,17 @@ export function HistoryPage() {
                           </button>
                         </td>
                         <td className="px-2 py-2 text-content-secondary">{s.rice_type_name}</td>
+                        {/* Price snapshot (reference column): 100-tin price with per-tin hint. */}
+                        <td className="px-2 py-2 text-right font-mono text-xs tabular-nums">
+                          {formatMMK(s.price_100_tin)}
+                          <span className="ml-1 text-content-muted">
+                            ({formatMMK(s.price_per_tin)}/{t({ my: 'တင်း', en: 'tin' })})
+                          </span>
+                        </td>
                         <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{s.total_bags}</td>
                         {/* NET pound (§3) — never gross or deduction. */}
                         <td className="px-2 py-2 text-right tabular-nums text-content-primary font-medium">{formatNumber(s.net_pound)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{formatTins(s.total_tins)}</td>
                         <td className="bg-accent/10 px-2 py-2 text-right tabular-nums text-accent font-semibold">{formatMMK(s.total_amount)}</td>
                         <td className="px-2 py-2">
                           <div className="flex items-center justify-end gap-1">
@@ -272,7 +451,7 @@ export function HistoryPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleDelete(record)}
+                              onClick={() => setDeleteTarget(record)}
                               title={t({ my: 'ဖျက်', en: 'Delete' })}
                               aria-label={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
                               className="rounded p-1 text-danger hover:bg-surface-hover"
@@ -290,6 +469,27 @@ export function HistoryPage() {
           </section>
         )
       })}
+
+      {/* Reference-concept empty state — shown when no records match. */}
+      {sortedDates.length === 0 && (
+        <section className="rounded-lg border border-border bg-surface px-4 py-10 text-center text-content-muted">
+          {t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}
+        </section>
+      )}
+
+      {/* Reference UI concept: delete confirmation via modal dialog. */}
+      <ConfirmDialog
+        open={deleteTarget != null}
+        title={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
+        message={`${t({ my: 'ဤဝယ်ယူမှုအား ဖျက်မှာလား?', en: 'Delete this purchase?' })} (${deleteTarget?.snapshot.purchase_no ?? ''}) — ${t({ my: 'ပြန်ပြင်၍ မရနိုင်ပါ', en: 'this cannot be undone.' })}`}
+        confirmLabel={t({ my: 'ဖျက်', en: 'Delete' })}
+        cancelLabel={t({ my: 'ပယ်ဖျက်', en: 'Cancel' })}
+        danger
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget)
+        }}
+      />
     </div>
   )
 }

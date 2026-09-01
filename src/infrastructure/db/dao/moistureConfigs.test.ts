@@ -66,4 +66,31 @@ describe('moisture configuration DAO (CRUD only)', () => {
     setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'default', label: 18 })
     expect(suggestedMoistureLabel(db, farmer.id, type.id)).toBeNull()
   })
+
+  it('Active/Default switching keeps the row and does not destroy the saved config', async () => {
+    // Regression: the Label Mark + Active/Default state machine must not
+    // destroy an existing config when the status toggles Active → Default →
+    // Active; the (farmer, rice type) row id stays stable and the label is
+    // only ever kept for ACTIVE configs.
+    const db = await createTestDatabase()
+    const farmer = createFarmer(db, { name: 'Ko Aung' })
+    const type = createRiceType(db, { name: 'Emata' })
+    const active = setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'active', label: 18 })
+    expect(active.id).toBeGreaterThan(0)
+
+    // Switch to Default → same row (upsert), label dropped (reference rule).
+    const def = setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'default', label: null })
+    expect(def.id).toBe(active.id)
+    expect(def.status).toBe('default')
+    expect(def.label).toBeNull()
+    expect(listMoistureConfigs(db)).toHaveLength(1)
+
+    // Switch back to Active with a label → same row, label restored.
+    const re = setMoistureConfig(db, { farmer_id: farmer.id, rice_type_id: type.id, status: 'active', label: 19 })
+    expect(re.id).toBe(active.id)
+    expect(re.status).toBe('active')
+    expect(re.label).toBe(19)
+    expect(listMoistureConfigs(db)).toHaveLength(1)
+    expect(getMoistureConfig(db, farmer.id, type.id)?.label).toBe(19)
+  })
 })

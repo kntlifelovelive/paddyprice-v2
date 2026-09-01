@@ -15,25 +15,46 @@ import {
 } from '@/infrastructure/db/dao/riceTypes'
 import type { RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, StatusDotIcon, Text, cn } from '@/shared/ui'
+import {
+  CheckCircleIcon,
+  ConfirmDialog,
+  DeleteIcon,
+  EditIcon,
+  Text,
+  ToggleSwitch,
+  XCircleIcon,
+  cn,
+} from '@/shared/ui'
 
-interface Draft {
+/** Add-form fields (no Active — new types are created active; the row's
+ *  inline Active/Inactive toggle is the single place to change it). */
+interface AddDraft {
   name: string
   description: string
+}
+
+/** Edit-row fields — includes the inline Active/Inactive toggle. */
+interface EditDraft extends AddDraft {
   active: boolean
 }
 
-function empty(): Draft {
+function emptyAdd(): AddDraft {
+  return { name: '', description: '' }
+}
+
+function emptyEdit(): EditDraft {
   return { name: '', description: '', active: true }
 }
 
 export function RiceTypesPage(): JSX.Element {
   const t = useT()
   const [items, setItems] = useState<RiceType[]>([])
-  const [draft, setDraft] = useState<Draft>(empty())
+  const [draft, setDraft] = useState<AddDraft>(emptyAdd())
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [editDraft, setEditDraft] = useState<Draft>(empty())
+  const [editDraft, setEditDraft] = useState<EditDraft>(emptyEdit())
   const [error, setError] = useState<string | null>(null)
+  // Reference UI concept: deletes are confirmed with a modal ConfirmDialog.
+  const [deleteTarget, setDeleteTarget] = useState<RiceType | null>(null)
 
   const refresh = () => {
     try {
@@ -55,9 +76,9 @@ export function RiceTypesPage(): JSX.Element {
       createRiceType(getDatabase(), {
         name: draft.name.trim(),
         description: draft.description.trim(),
-        active: draft.active ? 1 : 0,
+        active: 1,
       })
-      setDraft(empty())
+      setDraft(emptyAdd())
       setError(null)
       refresh()
     } catch (e) {
@@ -91,6 +112,8 @@ export function RiceTypesPage(): JSX.Element {
       refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDeleteTarget(null)
     }
   }
 
@@ -119,7 +142,7 @@ export function RiceTypesPage(): JSX.Element {
         <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
           {t({ my: 'အသစ်ထည့်ရန်', en: 'Add' })}
         </Text>
-        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
+        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
           <input
             type="text"
             value={draft.name}
@@ -134,14 +157,6 @@ export function RiceTypesPage(): JSX.Element {
             placeholder={t({ my: 'ဖော်ပြချက်', en: 'Description' })}
             className="rounded border border-border bg-background px-2 py-1.5"
           />
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={draft.active}
-              onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
-            />
-            <Text role="primary">{t({ my: 'အသုံးပြုနိုင်', en: 'Active' })}</Text>
-          </label>
         </div>
         <div className="mt-2">
           <button
@@ -218,11 +233,11 @@ export function RiceTypesPage(): JSX.Element {
                     </td>
                     <td className="px-2 py-1 text-center">
                       {editingId === rt.id ? (
-                        <label className="inline-flex items-center gap-1">
-                          <input
-                            type="checkbox"
+                        <label className="inline-flex items-center gap-1.5">
+                          <ToggleSwitch
                             checked={editDraft.active}
-                            onChange={(e) => setEditDraft({ ...editDraft, active: e.target.checked })}
+                            onChange={(checked) => setEditDraft({ ...editDraft, active: checked })}
+                            aria-label={t({ my: 'အသုံးပြုနိုင်', en: 'Active' })}
                           />
                           <Text role="primary">
                             {t({ my: 'အသုံးပြုနိုင်', en: 'Active' })}
@@ -230,13 +245,19 @@ export function RiceTypesPage(): JSX.Element {
                         </label>
                       ) : (
                         <span className="inline-flex items-center gap-1.5">
-                          <StatusDotIcon
-                            size="h-3 w-3"
-                            className={rt.active === 1 ? 'text-success' : 'text-content-muted'}
-                            aria-label={rt.active === 1
-                              ? t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })
-                              : t({ my: 'ပိတ်ထား', en: 'Inactive' })}
-                          />
+                          {rt.active === 1 ? (
+                            <CheckCircleIcon
+                              size="h-4 w-4"
+                              className="text-success"
+                              aria-label={t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })}
+                            />
+                          ) : (
+                            <XCircleIcon
+                              size="h-4 w-4"
+                              className="text-content-muted"
+                              aria-label={t({ my: 'ပိတ်ထား', en: 'Inactive' })}
+                            />
+                          )}
                           <Text role={rt.active === 1 ? 'primary' : 'muted'}>
                             {rt.active === 1
                               ? t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })
@@ -279,7 +300,7 @@ export function RiceTypesPage(): JSX.Element {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(rt.id)}
+                            onClick={() => setDeleteTarget(rt)}
                             aria-label={t({ my: 'စပါးအမျိုးအစား ဖျက်ရန်', en: 'Delete paddy type' })}
                             title={t({ my: 'စပါးအမျိုးအစား ဖျက်ရန်', en: 'Delete paddy type' })}
                             className="rounded p-1.5 text-danger hover:bg-surface-hover"
@@ -296,6 +317,22 @@ export function RiceTypesPage(): JSX.Element {
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={deleteTarget != null}
+        title={t({ my: 'စပါးအမျိုးအစား ဖျက်ရန်', en: 'Delete paddy type' })}
+        message={t({
+          my: `“${deleteTarget?.name ?? ''}” ကို ဖျက်မလား။ အဟောင်းဝယ်ယူမှုများတွင် စျေးနှုန်းအဟောင်း ဆက်ရှိနေမည်။`,
+          en: `Delete “${deleteTarget?.name ?? ''}”? Old purchase records keep their snapshot and are not affected.`,
+        })}
+        confirmLabel={t({ my: 'ဖျက်', en: 'Delete' })}
+        cancelLabel={t({ my: 'ပယ်ဖျက်', en: 'Cancel' })}
+        danger
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget.id)
+        }}
+      />
     </div>
   )
 }

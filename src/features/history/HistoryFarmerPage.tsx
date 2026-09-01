@@ -17,13 +17,16 @@ import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { useT } from '@/shared/hooks'
 import { BackIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
-import { generateVoucherPdf } from '@/services/pdf/service'
+import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
 import { printReceipt } from '@/services/print/service'
 import type { PrintReceipt } from '@/types/print'
 import type { PurchaseRecord } from '@/types'
 
 interface PageData {
   farmerName: string
+  /** Reference concept: show the customer's address/phone under the title. */
+  farmerAddress: string
+  farmerPhone: string
   rows: ReturnType<typeof getHistoryRecords>
   lbPerTin: number
   totalAmount: number
@@ -71,6 +74,9 @@ export function HistoryFarmerPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  // Reference-concept toolbar action: Bag Weights PDF for this customer
+  // (backed by P2's existing bag-weights PDF service).
+  const [bagPdfBusy, setBagPdfBusy] = useState(false)
 
   useEffect(() => {
     if (Number.isNaN(farmerId)) { setError('Invalid farmer id'); return }
@@ -83,7 +89,12 @@ export function HistoryFarmerPage(): JSX.Element {
       const totalAmount = records.reduce((sum, r) => sum + r.snapshot.total_amount, 0)
       const totalNetPound = records.reduce((sum, r) => sum + r.snapshot.net_pound, 0)
       const totalBags = records.reduce((sum, r) => sum + r.snapshot.total_bags, 0)
-      setData({ farmerName: farmer.name, rows: records, lbPerTin, totalAmount, totalNetPound, totalBags, purchaseCount: records.length })
+      setData({
+        farmerName: farmer.name,
+        farmerAddress: farmer.address,
+        farmerPhone: farmer.phone,
+        rows: records, lbPerTin, totalAmount, totalNetPound, totalBags, purchaseCount: records.length,
+      })
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }, [farmerId])
 
@@ -119,6 +130,17 @@ export function HistoryFarmerPage(): JSX.Element {
     } finally { setBusyId(null) }
   }
 
+  /** Reference-concept toolbar action — bag-weights PDF for this customer. */
+  async function handleBagWeightsPdf(): Promise<void> {
+    setBagPdfBusy(true)
+    try {
+      await generateBagWeightDetailsPdf(farmerId, null, '', '', 0)
+      setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PDF failed' })
+    } finally { setBagPdfBusy(false) }
+  }
+
   if (error) {
     return (
       <div className="space-y-4 p-3 sm:p-4" data-page="history-farmer">
@@ -143,12 +165,32 @@ export function HistoryFarmerPage(): JSX.Element {
         <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
           {t({ my: 'မှတ်တမ်း — ', en: 'History — ' })}{data.farmerName}
         </Text>
-        <button type="button" onClick={() => navigate('/history')}
-          className="flex items-center gap-1 rounded border border-border bg-surface px-3 py-1 text-xs hover:bg-surface-hover">
-          <BackIcon size="h-3 w-3" aria-label="Back" />
-          {t({ my: 'နောက်သို့', en: 'Back' })}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Reference-concept toolbar action for this customer */}
+          <button
+            type="button"
+            disabled={bagPdfBusy}
+            onClick={() => void handleBagWeightsPdf()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-hover disabled:opacity-50"
+          >
+            {bagPdfBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
+            {t({ my: 'အိတ် အလေးချိန် PDF', en: 'Bag Weights PDF' })}
+          </button>
+          <button type="button" onClick={() => navigate('/history')}
+            className="flex items-center gap-1 rounded border border-border bg-surface px-3 py-1 text-xs hover:bg-surface-hover">
+            <BackIcon size="h-3 w-3" aria-label="Back" />
+            {t({ my: 'နောက်သို့', en: 'Back' })}
+          </button>
+        </div>
       </div>
+
+      {/* Reference concept: customer address/phone context line */}
+      {(data.farmerAddress || data.farmerPhone) && (
+        <p className="text-sm text-content-muted">
+          {data.farmerAddress && <span>{data.farmerAddress}{data.farmerPhone ? ' · ' : ''}</span>}
+          {data.farmerPhone && <span>{data.farmerPhone}</span>}
+        </p>
+      )}
 
       {flash && (
         <div role="status" className={`rounded border px-3 py-1.5 text-sm ${flash.kind === 'ok' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}>

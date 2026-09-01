@@ -115,6 +115,34 @@ export function setSecurityTimeout(db: Database, timeout: AutoLockTimeout): void
 }
 
 /* ------------------------------------------------------------------ */
+/* Security change bus (framework-light)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tiny module-level notification bus so the App Lock GATE (mounted once in
+ * `app/App.tsx`) can re-read the persisted config after the Settings UI writes
+ * to it, and so the Lock Now action can reach the gate from inside the router.
+ * Keeps the service framework-light (no React/Zustand, matching the rest of
+ * this module).
+ */
+export type SecurityEvent = 'changed' | 'lock-now'
+
+const securityEventListeners = new Set<(event: SecurityEvent) => void>()
+
+/** Subscribe to security-config/lock-now events; returns the unsubscribe fn. */
+export function subscribeSecurityEvent(listener: (event: SecurityEvent) => void): () => void {
+  securityEventListeners.add(listener)
+  return () => {
+    securityEventListeners.delete(listener)
+  }
+}
+
+/** Notify subscribers that the persisted security config changed (or lock now). */
+export function emitSecurityEvent(event: SecurityEvent): void {
+  securityEventListeners.forEach((listener) => listener(event))
+}
+
+/* ------------------------------------------------------------------ */
 /* Runtime lock service (framework-light; owned by the gate layer)     */
 /* ------------------------------------------------------------------ */
 

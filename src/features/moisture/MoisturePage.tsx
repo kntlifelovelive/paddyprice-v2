@@ -7,7 +7,7 @@
  * (17/18/19/20) are managed in Settings; this page only stores the
  * per-pair label.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { getDatabase } from '@/infrastructure/db'
 import {
@@ -47,6 +47,10 @@ export function MoisturePage(): JSX.Element {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [farmerOptions, setFarmerOptions] = useState<ReturnType<typeof listFarmers>>([])
   const [riceTypeOptions, setRiceTypeOptions] = useState<ReturnType<typeof listRiceTypes>>([])
+  // Android-portrait interaction fix: the config form sits ABOVE the (long)
+  // Moisture List, so loading a row via Edit must bring the form back into
+  // view — otherwise the selected customer appears not to load at all.
+  const formRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     try {
@@ -70,6 +74,12 @@ export function MoisturePage(): JSX.Element {
   const handleAdd = () => {
     if (farmerId == null) {
       setError('Please pick a farmer')
+      return
+    }
+    if (status === 'active' && label == null) {
+      // Reference rule (DOMAIN_RULES §4.4): an ACTIVE config must carry the
+      // Pattern 1 default label; a label is only meaningful/kept for Active.
+      setError(t({ my: 'Active အခြေအနေတွင် အစိုဓာတ် အမှတ် ရွေးရပါမည်', en: 'Moisture Label is required when status is Active.' }))
       return
     }
     try {
@@ -109,6 +119,7 @@ export function MoisturePage(): JSX.Element {
     setStatus(row.status)
     setEditingId(row.id)
     setError(null)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const rows = useMemo(() => items, [items])
@@ -137,7 +148,7 @@ export function MoisturePage(): JSX.Element {
         {t({ my: 'အစိုဓာတ်', en: 'Moisture' })}
       </Text>
 
-      <section className="rounded-lg border border-border bg-surface p-3">
+      <section ref={formRef} className="rounded-lg border border-border bg-surface p-3">
         <div className="flex items-center justify-between">
           <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
             {t({ my: 'အစိုဓာတ် စနစ်ထားရန်', en: 'Moisture Configuration' })}
@@ -152,13 +163,16 @@ export function MoisturePage(): JSX.Element {
             </button>
           )}
         </div>
-        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-4">
+        {/* Reference grid: two columns from `sm` (Android tablet portrait),
+            four only on large screens — keeps each control wide enough to
+            read and tap. */}
+        <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အမည်', en: 'Name' })}</Text>
             <select
               value={farmerId ?? ''}
               onChange={(e) => setFarmerId(e.target.value === '' ? null : Number(e.target.value))}
-              className="rounded border border-border bg-background px-2 py-1.5"
+              className="rounded border border-border bg-background px-2 py-2"
             >
               <option value="">{t({ my: 'ရွေးပါ…', en: 'Select…' })}</option>
               {farmerOptions.map((f) => (
@@ -173,7 +187,7 @@ export function MoisturePage(): JSX.Element {
             <select
               value={riceTypeId ?? ''}
               onChange={(e) => setRiceTypeId(e.target.value === '' ? null : Number(e.target.value))}
-              className="rounded border border-border bg-background px-2 py-1.5"
+              className="rounded border border-border bg-background px-2 py-2"
             >
               <option value="">{t({ my: 'မရွေးပါ (လယ်သမားတစ်ယောက်ချင်း)', en: 'All Types' })}</option>
               {riceTypeOptions.map((rt) => (
@@ -187,12 +201,13 @@ export function MoisturePage(): JSX.Element {
             <Text role="secondary">{t({ my: 'အစိုဓာတ်', en: 'Label' })}</Text>
             <select
               value={label ?? ''}
+              disabled={status !== 'active'}
               onChange={(e) =>
                 setLabel(
                   e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
                 )
               }
-              className="rounded border border-border bg-background px-2 py-1.5"
+              className="rounded border border-border bg-background px-2 py-2 disabled:opacity-50"
             >
               <option value="">{t({ my: 'မရှိ', en: 'None' })}</option>
               {MOISTURE_LABEL_OPTIONS.map((opt: MoistureLabel) => (
@@ -202,13 +217,28 @@ export function MoisturePage(): JSX.Element {
               ))}
             </select>
           </label>
-          <div className="flex items-center gap-2">
+          {/* Active control — same structure as the select fields above
+              (label on top, control underneath) so the toggle sits level with
+              them instead of floating mid-cell (vertical alignment fix). */}
+          <div className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })}</Text>
-            <ToggleSwitch
-              checked={status === 'active'}
-              onChange={(on) => setStatus(on ? 'active' : 'default')}
-              aria-label={t({ my: 'အခြေအနေ', en: 'Status' })}
-            />
+            <div className="flex items-center gap-2 py-2">
+              <ToggleSwitch
+                checked={status === 'active'}
+                onChange={(on) => {
+                  setStatus(on ? 'active' : 'default')
+                  // Default configs carry no label (reference state machine);
+                  // clear the draft so the disabled Label select is honest.
+                  if (!on) setLabel(null)
+                }}
+                aria-label={t({ my: 'အခြေအနေ', en: 'Status' })}
+              />
+              <Text role={status === 'active' ? 'primary' : 'muted'}>
+                {status === 'active'
+                  ? t({ my: 'အသုံ်ပြုနိုင်', en: 'Active' })
+                  : t({ my: 'မူလ', en: 'Default' })}
+              </Text>
+            </div>
           </div>
         </div>
         <button

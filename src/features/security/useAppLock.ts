@@ -19,6 +19,7 @@ import {
   readSecurityConfig,
   SECURITY_KEY_PATTERN,
   SECURITY_KEY_PIN,
+  subscribeSecurityEvent,
 } from '@/services/security/app-lock'
 import type { AppLockService, AppLockState } from '@/services/security/app-lock'
 import { getSetting } from '@/infrastructure/db/dao/settings'
@@ -51,7 +52,7 @@ function loadVerifiers(db: Database): { pattern: string | null; pin: string | nu
 }
 
 export function useAppLock(): UseAppLockResult {
-  const [, setTick] = useState(0)
+  const [tick, setTick] = useState(0)
   const serviceRef = useRef<AppLockService | null>(null)
   const configRef = useRef<ReturnType<typeof readSecurityConfig> | null>(null)
 
@@ -67,17 +68,46 @@ export function useAppLock(): UseAppLockResult {
     })
   }
 
-  // Construct + subscribe (guarded: DB may not be ready during test bootstrap)
+  // Construct + subscribe (guarded: DB may not be ready during test bootstrap).
+  // Also subscribe to the security change bus so Settings mutations (set PIN,
+  // change PIN, remove PIN, enable/disable, timeout…) rebuild this gate's
+  // service immediately — otherwise changes would only apply after a reload.
+  // Auto-lock: track document visibility so backgrounding → foreground relocks
+  // per the configured timeout on BOTH web and Android WebView.
   useEffect(() => {
     let unsubscribe: (() => void) | undefined
+    let unsubscribeBus: (() => void) | undefined
     try {
       serviceRef.current = buildService()
       unsubscribe = serviceRef.current.subscribe(() => setTick((n) => n + 1))
+      unsubscribeBus = subscribeSecurityEvent((event) => {
+        if (event === 'lock-now') {
+          serviceRef.current?.lockNow()
+          return
+        }
+        // 'changed' → rebuild the service from the persisted config and
+        // re-evaluate the lock state so Settings changes apply immediately.
+
+        const sub = serviceRef.current?.subscribe(() => setTick((n) => n + 1))
+        serviceRef.current = buildService()
+        sub?.()
+        setTick((n) => n + 1)
+      })
       setTick((n) => n + 1)
     } catch {
       // DB not initialized (test environment or early bootstrap) — stay unlocked
     }
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        serviceRef.current?.onBackground()
+      } else if (document.visibilityState === 'visible') {
+        serviceRef.current?.onForeground()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      unsubscribeBus?.()
       unsubscribe?.()
       serviceRef.current = null
     }
@@ -88,7 +118,7 @@ export function useAppLock(): UseAppLockResult {
       return { locked: false, blocked: false, remainingMs: 0, failures: 0 }
     }
     return serviceRef.current.getState()
-  }, [serviceRef.current, /* tick */ 0]) // tick triggers re-evaluation; see setTick
+  }, [serviceRef.current, tick]) // tick triggers re-evaluation; see setTick
 
   const refresh = (): void => {
     if (serviceRef.current) {

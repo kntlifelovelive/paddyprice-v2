@@ -416,6 +416,17 @@ export function NewPurchasePage(): JSX.Element {
   }, [dbReady, form.bags.length]) // refresh when bags change so live tin decomposition stays current
   const tinBreakdown = useMemo(() => decomposeNetPound(form.netPound, lbPerTin), [form.netPound, lbPerTin])
 
+  // Display-only: resolve the selected customer's name from the already-loaded
+  // farmers list so the Bag Entry view always shows which customer the bag
+  // entries belong to (reference PurchasePage header concept). No logic change.
+  const bagEntryFarmerName = useMemo(
+    () =>
+      form.farmerId == null
+        ? null
+        : farmers.find((f) => f.id === form.farmerId)?.name ?? null,
+    [farmers, form.farmerId],
+  )
+
   if (!dbReady) {
     return (
       <div className="p-4">
@@ -535,6 +546,20 @@ export function NewPurchasePage(): JSX.Element {
       <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
         {t({ my: 'အိတ်ထည့်ခြင်း', en: 'Bag Entry' })}
       </Text>
+
+      {/* Contextual customer indicator — which customer these bag entries
+          belong to (reference concept). Display only. */}
+      {bagEntryFarmerName && (
+        <p
+          className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm"
+          data-testid="bag-entry-customer"
+        >
+          <Text role="secondary">{t({ my: 'ဝယ်ယူသည့်သူ', en: 'Customer' })}:</Text>
+          <Text role="primary" className="font-semibold text-accent">
+            {bagEntryFarmerName}
+          </Text>
+        </p>
+      )}
 
       {/* Pattern 1 (purchase-level) moisture label. Controls the label that
           NEW bag rows inherit; existing rows keep their own labels. Pattern 2

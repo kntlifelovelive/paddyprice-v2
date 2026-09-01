@@ -24,7 +24,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import type { Database } from 'sql.js'
 
 import { useAppStore } from '@/app/state'
-import { decomposeDeductionPound } from '@/domain/paddy/tinBreakdown'
+import { decomposeDeductionPound, totalDeductionTinBreakdown } from '@/domain/paddy/tinBreakdown'
 import { computeDeductionAmount } from '@/domain/pnl/report'
 import { getDatabase } from '@/infrastructure/db'
 import { getMoistureDeductionReport, getPnlReport } from '@/services/reports'
@@ -120,21 +120,18 @@ export function ProfitLossPage(): JSX.Element {
   )
 
   // Total row (Moisture Deduction) — plain sums of the displayed column values.
-  // Deduction total comes from the domain report; tin/extra decompose each
-  // row's DEDUCTION pound; amount = Σ deduction amounts (tin + extra valued
-  // at the stored price) — never the customers' purchase amounts.
+  // Deduction total comes from the domain report; Tin + Extra Lb are derived
+  // from the SUM of the underlying deduction pounds via the shared P2
+  // decomposition rule (aggregate first, decompose once — NOT summing each
+  // row's individually-decomposed tins/extra); amount = Σ deduction amounts
+  // (tin + extra valued at the stored price) — never the customers' purchase
+  // amounts.
   const totals = useMemo(() => {
-    let tins = 0
-    let extraLb = 0
+    const deductionLbs = deductionEntries.map((e) => e.breakdown.total_deduction_lb)
+    const { tins, extraLb } = totalDeductionTinBreakdown(deductionLbs, state.lbPerTin)
     let amount = 0
     for (const entry of deductionEntries) {
       const row = pnlByNo.get(entry.purchase_no)
-      const parts = decomposeDeductionPound(
-        entry.breakdown.total_deduction_lb,
-        state.lbPerTin,
-      )
-      tins += parts.tins
-      extraLb += parts.extraLb
       if (row) {
         amount += computeDeductionAmount(
           entry.breakdown.total_deduction_lb,
@@ -414,10 +411,12 @@ export function ProfitLossPage(): JSX.Element {
                 </div>
               </Fragment>
             ))}
-                        {/* Global Total footer (§8.1) — only mathematically meaningful sums.
-                Rendered as a single table row with the same 9-column structure
-                as the date-group tables so the totals align under Deduction /
-                Tin / Extra lb / Amount. */}
+                        {/* Global Total footer (§8.1) — aggregate-first sums: Deduction
+                total from the domain report; Tin + Extra Lb derived from the
+                SUM of the underlying deduction pounds via the shared P2 rule;
+                Amount = Σ row deduction amounts. The aligned table footer
+                keeps the totals under their columns, and a responsive summary
+                block below stays readable on Android portrait (no overflow). */}
             <div className="border-t-2 border-border bg-accent/10 px-3 py-1.5">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[880px] text-sm">
@@ -456,6 +455,25 @@ export function ProfitLossPage(): JSX.Element {
                                 </tbody>
               </table>
                             </div>
+              {/* Responsive total summary — portable, portrait-safe. */}
+              <div className="grid grid-cols-2 gap-2 px-1 sm:grid-cols-4">
+                <SummaryStat
+                  label={t({ my: 'စုစုပေါင်း နုတ်ယူမှု ပေါင်', en: 'Total Deduction Lb' })}
+                  value={formatNumber(totals.deductionLb)}
+                />
+                <SummaryStat
+                  label={t({ my: 'စုစုပေါင်း တင်း', en: 'Total Tin' })}
+                  value={formatNumber(totals.tins)}
+                />
+                <SummaryStat
+                  label={t({ my: 'စုစုပေါင်း ပိုပေါင်', en: 'Total Extra lb' })}
+                  value={formatNumber(totals.extraLb)}
+                />
+                <SummaryStat
+                  label={t({ my: 'စုစုပေါင်း ငွေ', en: 'Total Amount' })}
+                  value={formatMMK(totals.amount)}
+                />
+              </div>
             </div>
           </>
         )}

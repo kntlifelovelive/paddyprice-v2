@@ -179,12 +179,45 @@ export function ChevronDownIcon({ size = D, className = '', 'aria-label': label 
   )
 }
 
-/** Status dot — filled circle for active/inactive state indicators. */
-export function StatusDotIcon({ size = D, className = '', 'aria-label': label }: IconProps): JSX.Element {
+/**
+ * Check-circle — Active/positive status indicator (filled check inside a circle).
+ */
+export function CheckCircleIcon({ size = D, className = '', 'aria-label': label }: IconProps): JSX.Element {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-label={label}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-label={label}
       className={`shrink-0 ${size} ${className}`}>
-      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="8 12.5 11 15.5 16 9.5" />
+    </svg>
+  )
+}
+
+/**
+ * X-circle — Inactive/negative status indicator (cross inside a circle).
+ */
+export function XCircleIcon({ size = D, className = '', 'aria-label': label }: IconProps): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-label={label}
+      className={`shrink-0 ${size} ${className}`}>
+      <circle cx="12" cy="12" r="9" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+    </svg>
+  )
+}
+
+/**
+ * Plus / add icon.
+ */
+export function PlusIcon({ size = D, className = '', 'aria-label': label }: IconProps): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round" aria-label={label}
+      className={`shrink-0 ${size} ${className}`}>
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   )
 }
