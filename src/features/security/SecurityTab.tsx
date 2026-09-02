@@ -44,7 +44,7 @@ import type { SecurityConfig } from '@/types/security'
 
 /** Which flow/screen is active. */
 type PinFlow = 'idle' | 'set' | 'change' | 'remove'
-type PatternFlow = 'idle' | 'set' | 'change-verify' | 'change-new' | 'change-confirm' | 'remove'
+type PatternFlow = 'idle' | 'set' | 'set-confirm' | 'change-verify' | 'change-new' | 'change-confirm' | 'remove'
 /** Destructive operation awaiting ConfirmDialog confirmation. */
 type ConfirmAction = 'remove-pin' | 'remove-pattern'
 
@@ -225,14 +225,19 @@ export function SecurityTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element 
       setPatternError(t({ my: 'ပုံစံအား အနည်းဆုံး ၄ စက်ဖြင့် ဆွဲပါ', en: 'At least 4 unique dots required' }))
       return
     }
-    if (patternFlow === 'change-confirm' && firstDraw) {
-      if (patternToSecret(points) !== patternToSecret(firstDraw)) {
-        setPatternError(t({ my: 'ပုံစံ နှစ်ခု မတူညီပါ', en: 'Patterns do not match' }))
-        return
-      }
+    // 'set' → capture the first draw, then require a confirming redraw.
+    if (patternFlow === 'set') {
+      setFirstDraw(points)
+      setPatternFlow('set-confirm')
+      return
+    }
+    // 'set-confirm' | 'change-confirm' — the redraw must match the first draw.
+    if (firstDraw && patternToSecret(points) !== patternToSecret(firstDraw)) {
+      setPatternError(t({ my: 'ပုံစံ နှစ်ခု မတူညီပါ', en: 'Patterns do not match' }))
+      return
     }
     await savePattern(getDatabase(), points)
-    show(patternFlow === 'set'
+    show(patternFlow === 'set-confirm'
       ? t({ my: '✓ ပုံစံ သတ်မှတ်ပြီး', en: '✓ Pattern saved' })
       : t({ my: '✓ ပုံစံ ပြောင်းပြီး', en: '✓ Pattern changed' }))
     emitChanged()
@@ -292,6 +297,7 @@ export function SecurityTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element 
   const patternPrompt: Record<PatternFlow, { my: string; en: string }> = {
     idle: { my: '', en: '' },
     set: { my: 'ပုံစံအသစ် ဆွဲပါ', en: 'Draw your new pattern' },
+    'set-confirm': { my: 'ပုံစံအသစ်ကို ထပ်ဆွဲအတည်ပြုပါ', en: 'Confirm the new pattern' },
     'change-verify': { my: 'လက်ရှိပုံစံ ဆွဲပါ', en: 'Draw your current pattern' },
     'change-new': { my: 'ပုံစံအသစ် ဆွဲပါ', en: 'Draw your new pattern' },
     'change-confirm': { my: 'ပုံစံအသစ်ကို ထပ်ဆွဲအတည်ပြုပါ', en: 'Confirm the new pattern' },

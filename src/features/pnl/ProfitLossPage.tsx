@@ -28,6 +28,7 @@ import { decomposeDeductionPound } from '@/domain/paddy/tinBreakdown'
 import { computeDeductionAmount } from '@/domain/pnl/report'
 import { getDatabase } from '@/infrastructure/db'
 import { computeDeductionTotals } from './deductionTotals'
+import { hasMoistureDeduction, hasMoistureResult, sumDeductionLb } from './moistureDisplayFilters'
 import { getMoistureDeductionReport, getPnlReport } from '@/services/reports'
 import type { PnlReport, MoistureDeductionReport } from '@/services/reports'
 import { settingsService } from '@/services/settings'
@@ -78,9 +79,15 @@ export function ProfitLossPage(): JSX.Element {
     }
   }, [dbReady])
 
-  const purchaseRows = useMemo(() => state.pnl?.rows ?? [], [state.pnl])
+  // Display filtering (§8 / §8.1) — the tables show ONLY purchases with a
+  // valid moisture result / an ACTUAL deduction, read from the existing
+  // domain results. The P&L summary card above stays over ALL purchases.
+  const purchaseRows = useMemo(() => (state.pnl?.rows ?? []).filter(hasMoistureResult), [state.pnl])
   const summary = state.pnl?.summary
-  const deductionEntries = useMemo(() => state.deduction?.entries ?? [], [state.deduction])
+  const deductionEntries = useMemo(
+    () => (state.deduction?.entries ?? []).filter(hasMoistureDeduction),
+    [state.deduction],
+  )
 
   // Consecutive date grouping (rows arrive date-DESC). The No column is
   // PER-DATE: numbering resets in every date group — the newest row within
@@ -121,19 +128,21 @@ export function ProfitLossPage(): JSX.Element {
   )
 
   // Total row (Moisture Deduction) — plain sums of the displayed column values.
-  // Deduction total comes from the domain report (Σ the same entries the table
-  // displays); tin/extra decompose each row's DEDUCTION pound via the existing
-  // P2 rule and sum the row results; amount = Σ deduction amounts (tin + extra
-  // valued at each row's stored price) — never the customers' purchase amounts.
+  // Deduction total = Σ the FILTERED entries the table displays (moisture-
+  // cleared entries are excluded above), so the Total always reconciles with
+  // the displayed rows; tin/extra decompose each row's DEDUCTION pound via the
+  // existing P2 rule and sum the row results; amount = Σ deduction amounts
+  // (tin + extra valued at each row's stored price) — never the customers'
+  // purchase amounts.
   const totals = useMemo(
     () =>
       computeDeductionTotals(
-        state.deduction?.total_deduction_lb,
+        sumDeductionLb(deductionEntries),
         deductionEntries,
         (purchaseNo) => pnlByNo.get(purchaseNo)?.price_per_tin,
         state.lbPerTin,
       ),
-    [state.deduction, deductionEntries, pnlByNo, state.lbPerTin],
+    [deductionEntries, pnlByNo, state.lbPerTin],
   )
 
   if (state.error) {

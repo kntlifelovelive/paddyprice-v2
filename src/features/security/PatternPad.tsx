@@ -113,7 +113,7 @@ export function PatternPad({ size = 240, onSubmit, disabled = false }: PatternPa
         })}
       </svg>
       <div className="text-xs text-content-muted">
-        {points.length === 0 ? 'Draw pattern (≥ 4 dots)' : `${points.length} dot${points.length === 1 ? '' : 's'} — release to submit`}
+        {points.length === 0 ? 'Draw pattern (> 4 dots)' : `${points.length} dot${points.length === 1 ? '' : 's'} — release to submit`}
       </div>
     </div>
   )

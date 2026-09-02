@@ -97,14 +97,9 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
               </Text>
             </>
           ) : (
-            <>
-              <Text as="h1" role="header" className="text-lg font-semibold">
-                {t({ my: 'လော့ခ်ချထားသည်', en: 'App Locked' })}
-              </Text>
-              <Text role="secondary" className="text-sm">
-                {t({ my: 'ဆက်လက်အသုံးပြုရန် ဖွင့်ပါ', en: 'Unlock to continue' })}
-              </Text>
-            </>
+            <Text as="h1" role="header" className="text-lg font-semibold tracking-wide">
+              {t({ my: 'PadDy', en: 'PadDy' })}
+            </Text>
           )}
         </div>
 
@@ -169,7 +164,12 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
 
         <div className="mt-4 flex flex-col items-center">
           {method === 'pattern' && props.hasPattern && (
-            <PatternPad onSubmit={submitPattern} disabled={busy || props.blocked} />
+            <div className="flex w-full flex-col items-center gap-2">
+              <Text role="secondary" className="text-sm">
+                {t({ my: 'ပုံစံ ဆွဲပါ', en: 'Draw your pattern' })}
+              </Text>
+              <PatternPad onSubmit={submitPattern} disabled={busy || props.blocked} />
+            </div>
           )}
 
           {method === 'pin' && props.hasPin && (
@@ -177,6 +177,9 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
               className="flex flex-col items-center gap-2"
               onSubmit={(e) => { e.preventDefault(); void submitPin(pin) }}
             >
+              <Text role="secondary" className="text-sm">
+                {t({ my: 'PIN ထည့်ပါ', en: 'Enter your PIN' })}
+              </Text>
               <input
                 type="password"
                 inputMode="numeric"

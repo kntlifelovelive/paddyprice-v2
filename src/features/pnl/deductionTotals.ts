@@ -5,9 +5,9 @@
  * already displays — no new formulas:
  *
  *   - Total Deduction Pound = Σ the displayed rows' deduction pounds (the
- *     domain report's `total_deduction_lb`, computed by `services/reports`
- *     over the SAME entries the table displays; the P&L page applies no
- *     filtering).
+ *     P&L page filters the entries the table displays — moisture-cleared
+ *     entries are excluded — and passes Σ those displayed rows' deduction
+ *     pounds, matching the domain report's per-entry §8.1 results).
  *   - Total Tin / Extra Lb = the TOTAL deduction pound decomposed ONCE with
  *     the existing P2 rule (`decomposeDeductionPound`): total pound ÷ tin
  *     size → whole tins + remaining pounds. This matches the row columns'
@@ -38,7 +38,7 @@ export interface DeductionTotals {
  * Aggregate the given deduction entries (the exact rows displayed by the
  * Moisture Deduction table) into the Total footer values.
  *
- * `totalDeductionLb` is the report's grand total over those same rows (§8.1);
+ * `totalDeductionLb` is Σ those same displayed rows' deduction pounds (§8.1);
  * Tin + Extra Lb decompose it once with the existing P2 rule.
  *
  * `priceFor` returns the stored snapshot `price_per_tin` for a purchase_no, or
