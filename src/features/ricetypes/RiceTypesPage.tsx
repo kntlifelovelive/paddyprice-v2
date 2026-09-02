@@ -15,6 +15,7 @@ import {
 } from '@/infrastructure/db/dao/riceTypes'
 import type { RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
+import { creationOrderNos } from '@/shared/creationOrder'
 import {
   CheckCircleIcon,
   ConfirmDialog,
@@ -126,6 +127,10 @@ export function RiceTypesPage(): JSX.Element {
     })
   }
 
+  // No. = permanent creation rank (No. 1 = first created; the newest record
+  // at the TOP of the table carries the HIGHEST No) — shared/creationOrder.
+  const nos = creationOrderNos(items)
+
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="rice-types">
       <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
@@ -169,19 +174,21 @@ export function RiceTypesPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-surface">
-        <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
-            {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
-          </Text>
-        </div>
-        {items.length === 0 ? (
-          <div className="p-4 text-center">
-            <Text role="muted">{t({ my: 'မရှိသေးပါ', en: 'Empty' })}</Text>
-          </div>
-        ) : (
+      {/* Moisture-style list rendering: header card, then either an empty
+          card or the table in its own overflow-hidden section. */}
+      <section className="rounded-lg border border-border bg-surface p-3">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
+          {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
+        </Text>
+      </section>
+      {items.length === 0 ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <Text role="muted">{t({ my: 'မရှိသေးပါ', en: 'Empty' })}</Text>
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
@@ -202,12 +209,12 @@ export function RiceTypesPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((rt, idx) => (
+                {items.map((rt) => (
                   <tr key={rt.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
-                    <td className="w-10 px-2 py-1 text-right tabular-nums">
-                      <Text role="secondary">{idx + 1}</Text>
+                    <td className="w-10 px-2 py-2 text-right tabular-nums">
+                      <Text role="secondary">{nos.get(rt.id)}</Text>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-2 py-2">
                       {editingId === rt.id ? (
                         <input
                           type="text"
@@ -219,7 +226,7 @@ export function RiceTypesPage(): JSX.Element {
                         <Text role="primary" className="font-medium text-accent">{rt.name}</Text>
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-2 py-2">
                       {editingId === rt.id ? (
                         <input
                           type="text"
@@ -231,7 +238,7 @@ export function RiceTypesPage(): JSX.Element {
                         <Text role="secondary">{rt.description}</Text>
                       )}
                     </td>
-                    <td className="px-2 py-1 text-center">
+                    <td className="px-2 py-2 text-center">
                       {editingId === rt.id ? (
                         <label className="inline-flex items-center gap-1.5">
                           <ToggleSwitch
@@ -266,7 +273,7 @@ export function RiceTypesPage(): JSX.Element {
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-1 text-right">
+                    <td className="px-2 py-2 text-right">
                       {editingId === rt.id ? (
                         <div className="flex justify-end gap-2">
                           <button
@@ -315,8 +322,8 @@ export function RiceTypesPage(): JSX.Element {
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       <ConfirmDialog
         open={deleteTarget != null}

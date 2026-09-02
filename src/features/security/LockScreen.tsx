@@ -14,7 +14,7 @@
 import { useState } from 'react'
 import { useT } from '@/shared/hooks'
 import { LockIcon, Text, cn } from '@/shared/ui'
-import { PatternPad } from './PatternPad'
+import { PatternPad } from '@/shared/ui'
 
 export type UnlockMethod = 'pattern' | 'pin'
 

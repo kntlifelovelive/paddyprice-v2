@@ -1,9 +1,12 @@
 /**
  * 3x3 pattern pad — touch & mouse-friendly. The draw order (sequence of dot
  * indices) is the secret; the user can lift and start over before submitting.
+ *
+ * Moved to shared/ui so multiple features (LockScreen, delete-protection, …)
+ * can capture pattern input without crossing feature boundaries.
  */
 import { useState } from 'react'
-import { cn } from '@/shared/ui'
+import { cn } from './cn'
 
 interface PatternPadProps {
   size?: number
@@ -56,10 +59,8 @@ export function PatternPad({ size = 240, onSubmit, disabled = false }: PatternPa
     if (!drawing || disabled) return
     const idx = getDotFromEvent(evt)
     if (idx === null) {
-  // hover state removed (unused after simplication)
       return
     }
-// hover state removed
     if (!points.includes(idx)) {
       setPoints((prev) => [...prev, idx])
     }
@@ -68,7 +69,6 @@ export function PatternPad({ size = 240, onSubmit, disabled = false }: PatternPa
   function handleUp(evt: React.PointerEvent<SVGSVGElement>): void {
     if (!drawing) return
     setDrawing(false)
-// hover state removed (unused after simplication)
     try { evt.currentTarget.releasePointerCapture(evt.pointerId) } catch { /* noop */ }
     if (points.length >= 4) {
       onSubmit([...points])

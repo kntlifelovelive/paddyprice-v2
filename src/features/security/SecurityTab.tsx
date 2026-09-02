@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/shared/hooks'
 import { Text, LockIcon, ToggleSwitch } from '@/shared/ui'
 import { ConfirmDialog } from '@/shared/ui'
-import { PatternPad } from './PatternPad'
+import { PatternPad } from '@/shared/ui'
 import { getDatabase } from '@/infrastructure/db'
 import { getSetting } from '@/infrastructure/db/dao/settings'
 import {

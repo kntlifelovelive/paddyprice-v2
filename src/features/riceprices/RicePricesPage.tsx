@@ -24,6 +24,7 @@ import { formatPriceShorthand, parsePriceFormat } from '@/domain/paddy/price'
 import { formatMMK, formatNumber } from '@/shared/format'
 import type { RicePrice, RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
+import { creationOrderNos } from '@/shared/creationOrder'
 import { DeleteIcon, EditIcon, Text } from '@/shared/ui'
 
 function priceFromShorthand(
@@ -137,6 +138,10 @@ export function RicePricesPage(): JSX.Element {
 
   const riceTypeName = (id: number): string => riceTypes.find((rt) => rt.id === id)?.name ?? '—'
 
+  // No. = permanent creation rank (No. 1 = first created; the newest record
+  // at the TOP of the table carries the HIGHEST No) — shared/creationOrder.
+  const nos = creationOrderNos(items)
+
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="rice-prices">
       <Text as="h1" role="header" className="text-lg font-semibold text-accent-hover">
@@ -212,17 +217,19 @@ export function RicePricesPage(): JSX.Element {
         </p>
       )}
 
-      <section className="rounded-lg border border-border bg-surface">
-        <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
-            {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
-          </Text>
-        </div>
-        {items.length === 0 ? (
-          <div className="p-4">
-            <Text role="muted">{t({ my: 'ဈေးနှုန်း မရှိသေးပါ', en: 'No prices yet' })}</Text>
-          </div>
-        ) : (
+      {/* Moisture-style list rendering: header card, then either an empty
+          card or the table in its own overflow-hidden section. */}
+      <section className="rounded-lg border border-border bg-surface p-3">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
+          {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
+        </Text>
+      </section>
+      {items.length === 0 ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <Text role="muted">{t({ my: 'ဈေးနှုန်း မရှိသေးပါ', en: 'No prices yet' })}</Text>
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
@@ -248,10 +255,10 @@ export function RicePricesPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((p, idx) => (
+                {items.map((p) => (
                   <tr key={p.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-2 text-right tabular-nums">
-                      <Text role="secondary">{idx + 1}</Text>
+                      <Text role="secondary">{nos.get(p.id)}</Text>
                     </td>
                     <td className="px-2 py-2">
                       <Text role="primary">{p.date}</Text>
@@ -329,8 +336,8 @@ export function RicePricesPage(): JSX.Element {
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </div>
   )
 }

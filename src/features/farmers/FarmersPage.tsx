@@ -9,7 +9,8 @@
  * the DAO accepts them; the page simply reuses the existing contracts.
  *
  * Step 11 §7 — newest-first display order; the table shows a No column where
- * the newest row is No. 1 at the top.
+ * the No is the record's PERMANENT creation rank (No. 1 = first created, the
+ * newest row at the top carries the highest No) — see shared/creationOrder.
  */
 import { useEffect, useState } from 'react'
 
@@ -22,9 +23,15 @@ import {
   type FarmerInput,
   type FarmerPatch,
 } from '@/infrastructure/db/dao/farmers'
+import {
+  readCredentialAvailability,
+  verifyAppLockCredential,
+  type CredentialAvailability,
+} from '@/services/security/credential-verify'
 import type { Farmer } from '@/types'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, Text, cn } from '@/shared/ui'
+import { creationOrderNos } from '@/shared/creationOrder'
+import { ConfirmDialog, CredentialUnlockDialog, DeleteIcon, EditIcon, LockIcon, Text, UnlockIcon, cn } from '@/shared/ui'
 
 interface FarmerDraft {
   name: string
@@ -44,9 +51,22 @@ export function FarmersPage(): JSX.Element {
   const [editingDraft, setEditingDraft] = useState<FarmerDraft>(emptyDraft())
   const [error, setError] = useState<string | null>(null)
 
+  // Delete-protection: customers are locked for deletion by default when App
+  // Lock has a credential configured. Track which farmer rows are currently
+  // unlocked (per-row). Returns to locked after deletion or page unmount.
+  const [unlockedIds, setUnlockedIds] = useState<Set<number>>(new Set())
+  const [unlockTarget, setUnlockTarget] = useState<Farmer | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<Farmer | null>(null)
+  const [securityEnabled, setSecurityEnabled] = useState(false)
+  const [credAvail, setCredAvail] = useState<CredentialAvailability>({ hasPattern: false, hasPin: false })
+
   useEffect(() => {
     try {
-      setItems(listFarmers(getDatabase()))
+      const db = getDatabase()
+      setItems(listFarmers(db))
+      const cred = readCredentialAvailability(db)
+      setCredAvail(cred)
+      setSecurityEnabled(cred.hasPattern || cred.hasPin)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -114,8 +134,45 @@ export function FarmersPage(): JSX.Element {
       refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setUnlockedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+      setDeleteConfirm(null)
     }
   }
+
+  const handleUnlock = (farmer: Farmer) => {
+    setUnlockedIds((prev) => new Set(prev).add(farmer.id))
+    setUnlockTarget(null)
+  }
+
+  const handleLock = (id: number) => {
+    setUnlockedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+  }
+
+  /** Open the credential dialog for a row — reads configured App Lock
+      credentials fresh so the dialog offers exactly the right method(s). */
+  const openUnlock = (f: Farmer) => {
+    try {
+      setCredAvail(readCredentialAvailability(getDatabase()))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return
+    }
+    setUnlockTarget(f)
+  }
+
+  // No. = permanent creation rank (No. 1 = first created; the newest record
+  // at the TOP of the table carries the HIGHEST No). Derived from the
+  // persisted created_at/id — no duplicate numbering state.
+  const nos = creationOrderNos(items)
 
   return (
     <div className="space-y-4 p-3 sm:p-4" data-page="farmers">
@@ -168,19 +225,21 @@ export function FarmersPage(): JSX.Element {
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-surface">
-        <div className="border-b border-border p-3">
-          <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
-            {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
-          </Text>
-        </div>
-        {items.length === 0 ? (
-          <div className="p-4 text-center">
-            <Text role="muted">{t({ my: 'မရှိသေးပါ', en: 'Empty' })}</Text>
-          </div>
-        ) : (
+      {/* Moisture-style list rendering: header card, then either an empty
+          card or the table in its own overflow-hidden section. */}
+      <section className="rounded-lg border border-border bg-surface p-3">
+        <Text as="h2" role="header" className="text-sm font-semibold text-accent-hover">
+          {t({ my: 'စာရင်း', en: 'List' })} ({items.length})
+        </Text>
+      </section>
+      {items.length === 0 ? (
+        <section className="rounded-lg border border-border bg-surface p-4">
+          <Text role="muted">{t({ my: 'မရှိသေးပါ', en: 'Empty' })}</Text>
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[600px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface">
                   <th className="w-10 px-2 py-2 text-right">
@@ -201,12 +260,12 @@ export function FarmersPage(): JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {items.map((f, idx) => (
+                {items.map((f) => (
                   <tr key={f.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
-                    <td className="w-10 px-2 py-1 text-right tabular-nums">
-                      <Text role="secondary">{idx + 1}</Text>
+                    <td className="w-10 px-2 py-2 text-right tabular-nums">
+                      <Text role="secondary">{nos.get(f.id)}</Text>
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-2 py-2">
                       {editingId === f.id ? (
                         <input
                           type="text"
@@ -218,7 +277,7 @@ export function FarmersPage(): JSX.Element {
                         <Text role="primary" className="font-medium text-accent">{f.name}</Text>
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-2 py-2">
                       {editingId === f.id ? (
                         <input
                           type="text"
@@ -230,7 +289,7 @@ export function FarmersPage(): JSX.Element {
                         <Text role="secondary">{f.address || '—'}</Text>
                       )}
                     </td>
-                    <td className="px-2 py-1">
+                    <td className="px-2 py-2">
                       {editingId === f.id ? (
                         <input
                           type="text"
@@ -242,7 +301,7 @@ export function FarmersPage(): JSX.Element {
                         <Text role="secondary">{f.phone || '—'}</Text>
                       )}
                     </td>
-                    <td className="px-2 py-1 text-right">
+                    <td className="px-2 py-2 text-right">
                       {editingId === f.id ? (
                         <div className="flex justify-end gap-2">
                           <button
@@ -274,15 +333,50 @@ export function FarmersPage(): JSX.Element {
                           >
                             <EditIcon size="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(f.id)}
-                            aria-label={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
-                            title={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
-                            className="rounded p-1.5 text-danger hover:bg-surface-hover"
-                          >
-                            <DeleteIcon size="h-4 w-4" />
-                          </button>
+                          {securityEnabled ? (
+                            unlockedIds.has(f.id) ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleLock(f.id)}
+                                  aria-label={t({ my: 'သော့ခတ်ရန်', en: 'Lock row' })}
+                                  title={t({ my: 'သော့ခတ်ရန်', en: 'Lock row' })}
+                                  className="rounded p-1.5 text-success hover:bg-surface-hover"
+                                >
+                                  <UnlockIcon size="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirm(f)}
+                                  aria-label={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
+                                  title={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
+                                  className="rounded p-1.5 text-danger hover:bg-surface-hover"
+                                >
+                                  <DeleteIcon size="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openUnlock(f)}
+                                aria-label={t({ my: 'ဖျက်ရန် သော့ဖွင့်ပါ', en: 'Unlock to delete' })}
+                                title={t({ my: 'ဖျက်ရန် သော့ဖွင့်ပါ', en: 'Unlock to delete' })}
+                                className="rounded p-1.5 text-danger hover:bg-surface-hover"
+                              >
+                                <LockIcon size="h-4 w-4" aria-label="Locked" />
+                              </button>
+                            )
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirm(f)}
+                              aria-label={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
+                              title={t({ my: 'လယ်သမား ဖျက်ရန်', en: 'Delete customer' })}
+                              className="rounded p-1.5 text-danger hover:bg-surface-hover"
+                            >
+                              <DeleteIcon size="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -291,8 +385,36 @@ export function FarmersPage(): JSX.Element {
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
+
+      {deleteConfirm && (
+        <ConfirmDialog
+          open={true}
+          title={t({ my: 'ဖျက်မည်', en: 'Delete customer' })}
+          message={t({
+            my: `“${deleteConfirm.name}” ကို ဖျက်ပါမည်?`,
+            en: `Delete ${deleteConfirm.name}?`,
+          })}
+          danger
+          confirmLabel={t({ my: 'ဖျက်မည်', en: 'Delete' })}
+          cancelLabel={t({ my: 'မလုပ်တော့', en: 'Cancel' })}
+          onConfirm={() => handleDelete(deleteConfirm.id)}
+          onCancel={() => setDeleteConfirm(null)}
+        />
+      )}
+
+      {unlockTarget && (
+        <CredentialUnlockDialog
+          title={t({ my: 'ဖျက်ရန်', en: 'Delete customer' })}
+          message={t({ my: `“${unlockTarget.name}” ကို ဖျက်မည်`, en: `Delete ${unlockTarget.name}?` })}
+          hasPattern={credAvail.hasPattern}
+          hasPin={credAvail.hasPin}
+          onVerify={(attempt) => verifyAppLockCredential(getDatabase(), attempt)}
+          onSuccess={() => handleUnlock(unlockTarget)}
+          onClose={() => setUnlockTarget(null)}
+        />
+      )}
     </div>
   )
 }

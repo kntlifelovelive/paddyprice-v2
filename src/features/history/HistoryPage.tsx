@@ -14,7 +14,10 @@
  *   sort toggle. All filters are local view state over the loaded records.
  * - Per-row actions: Edit (open the existing New Purchase page pre-filled),
  *   PDF (generate the voucher PDF), Print (open the thermal receipt),
- *   Delete (modal ConfirmDialog confirmation, as in the reference).
+ *   Delete (delete-lock: when an App Lock credential exists the row is locked
+ *   by default and the EXISTING security verification must succeed first —
+ *   unlocks are tracked by the record's STABLE farmer_id, never by name —
+ *   then the modal ConfirmDialog confirmation, as in the reference).
  * - Semantic theme text tokens only; no hard-coded colors.
  */
 import { useMemo, useState } from 'react'
@@ -31,15 +34,23 @@ import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/for
 import { useT } from '@/shared/hooks'
 import {
   ConfirmDialog,
+  CredentialUnlockDialog,
   DeleteIcon,
   EditIcon,
+  LockIcon,
   PdfIcon,
   PlusIcon,
   PrintIcon,
   SpinnerIcon,
   Text,
+  UnlockIcon,
 } from '@/shared/ui'
 import type { PurchaseRecord } from '@/types'
+import {
+  readCredentialAvailability,
+  verifyAppLockCredential,
+  type CredentialAvailability,
+} from '@/services/security/credential-verify'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
 import { printReceipt } from '@/services/print/service'
 import type { PrintReceipt } from '@/types/print'
@@ -50,6 +61,8 @@ interface HistoryData {
   /** Toolbar dropdown sources (reference HistoryPage concept). */
   farmers: ReturnType<typeof farmersDao.listFarmers>
   riceTypes: ReturnType<typeof riceTypesDao.listRiceTypes>
+  /** Presence flags of the configured App Lock credentials (no secrets). */
+  cred: ReturnType<typeof readCredentialAvailability>
 }
 
 function loadHistory(db: Database): HistoryData {
@@ -58,6 +71,7 @@ function loadHistory(db: Database): HistoryData {
     lbPerTin: settingsService.lbPerTin(db),
     farmers: farmersDao.listFarmers(db),
     riceTypes: riceTypesDao.listRiceTypes(db, false),
+    cred: readCredentialAvailability(db),
   }
 }
 
@@ -112,6 +126,13 @@ export function HistoryPage() {
   const [bagPdfBusy, setBagPdfBusy] = useState(false)
   // Reference UI concept: deletes are confirmed with a modal ConfirmDialog.
   const [deleteTarget, setDeleteTarget] = useState<PurchaseRecord | null>(null)
+  // Delete-protection for customer-owned history records (same concept as the
+  // Customer page): locked by default when an App Lock credential exists.
+  // Unlocks are tracked by the record's STABLE farmer_id — never by name — so
+  // two customers with identical names unlock/delete independently.
+  const [unlockedFarmerIds, setUnlockedFarmerIds] = useState<Set<number>>(new Set())
+  const [unlockTarget, setUnlockTarget] = useState<PurchaseRecord | null>(null)
+  const [credAvail, setCredAvail] = useState<CredentialAvailability>({ hasPattern: false, hasPin: false })
   const data = useMemo<{ data: HistoryData | null; error: string | null }>(() => {
     try {
       return { data: loadHistory(getDatabase()), error: null }
@@ -130,7 +151,38 @@ export function HistoryPage() {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Delete failed' })
     } finally {
       setDeleteTarget(null)
+      // Return the deleted record's customer to the locked state.
+      setUnlockedFarmerIds((prev) => {
+        const next = new Set(prev)
+        next.delete(record.snapshot.farmer_id)
+        return next
+      })
     }
+  }
+
+  /** Open the credential dialog for a record — reads configured App Lock
+      credentials fresh so the dialog offers exactly the right method(s). */
+  function openUnlock(record: PurchaseRecord): void {
+    try {
+      setCredAvail(readCredentialAvailability(getDatabase()))
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Security check failed' })
+      return
+    }
+    setUnlockTarget(record)
+  }
+
+  function handleUnlock(record: PurchaseRecord): void {
+    setUnlockedFarmerIds((prev) => new Set(prev).add(record.snapshot.farmer_id))
+    setUnlockTarget(null)
+  }
+
+  function handleRelock(record: PurchaseRecord): void {
+    setUnlockedFarmerIds((prev) => {
+      const next = new Set(prev)
+      next.delete(record.snapshot.farmer_id)
+      return next
+    })
   }
 
   /**
@@ -207,6 +259,8 @@ export function HistoryPage() {
   }
 
   const { records, lbPerTin } = data.data
+  // Delete-lock is active when any App Lock credential is configured.
+  const securityEnabled = data.data.cred.hasPattern || data.data.cred.hasPin
 
   /** Purchase date (YYYY-MM-DD part) of a record. */
   const dateOf = (r: PurchaseRecord): string => r.snapshot.date.split('T')[0] ?? r.snapshot.date
@@ -449,15 +503,50 @@ export function HistoryPage() {
                             >
                               <PrintIcon size="h-4 w-4" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setDeleteTarget(record)}
-                              title={t({ my: 'ဖျက်', en: 'Delete' })}
-                              aria-label={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
-                              className="rounded p-1 text-danger hover:bg-surface-hover"
-                            >
-                              <DeleteIcon size="h-4 w-4" />
-                            </button>
+                            {securityEnabled ? (
+                              unlockedFarmerIds.has(s.farmer_id) ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRelock(record)}
+                                    title={t({ my: 'သော့ခတ်ရန်', en: 'Re-lock delete' })}
+                                    aria-label={t({ my: 'သော့ခတ်ရန်', en: 'Re-lock delete' })}
+                                    className="rounded p-1 text-success hover:bg-surface-hover"
+                                  >
+                                    <UnlockIcon size="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteTarget(record)}
+                                    title={t({ my: 'ဖျက်', en: 'Delete' })}
+                                    aria-label={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
+                                    className="rounded p-1 text-danger hover:bg-surface-hover"
+                                  >
+                                    <DeleteIcon size="h-4 w-4" />
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openUnlock(record)}
+                                  title={t({ my: 'ဖျက်ရန် သော့ဖွင့်ပါ', en: 'Unlock to delete' })}
+                                  aria-label={t({ my: 'ဖျက်ရန် သော့ဖွင့်ပါ', en: 'Unlock to delete' })}
+                                  className="rounded p-1 text-danger hover:bg-surface-hover"
+                                >
+                                  <LockIcon size="h-4 w-4" aria-label="Locked" />
+                                </button>
+                              )
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(record)}
+                                title={t({ my: 'ဖျက်', en: 'Delete' })}
+                                aria-label={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
+                                className="rounded p-1 text-danger hover:bg-surface-hover"
+                              >
+                                <DeleteIcon size="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -490,6 +579,21 @@ export function HistoryPage() {
           if (deleteTarget) handleDelete(deleteTarget)
         }}
       />
+
+      {/* Delete-lock credential dialog — verifies the EXISTING App Lock
+          credential (pattern/PIN). Keyed to the record's farmer_id by the
+          unlock handlers; wrong credential simply keeps the row locked. */}
+      {unlockTarget && (
+        <CredentialUnlockDialog
+          title={t({ my: 'ဝယ်ယူမှု ဖျက်ရန်', en: 'Delete purchase' })}
+          message={`${unlockTarget.snapshot.purchase_no} — ${unlockTarget.snapshot.farmer_name}`}
+          hasPattern={credAvail.hasPattern}
+          hasPin={credAvail.hasPin}
+          onVerify={(attempt) => verifyAppLockCredential(getDatabase(), attempt)}
+          onSuccess={() => handleUnlock(unlockTarget)}
+          onClose={() => setUnlockTarget(null)}
+        />
+      )}
     </div>
   )
 }
