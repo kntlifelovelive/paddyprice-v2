@@ -47,7 +47,7 @@ export function getFarmer(db: Database, id: number): Farmer | null {
 }
 
 export function listFarmers(db: Database): Farmer[] {
-  return queryAll(db, `SELECT ${COLS} FROM farmers ORDER BY name COLLATE NOCASE`).map(mapFarmer)
+  return queryAll(db, `SELECT ${COLS} FROM farmers ORDER BY created_at DESC`).map(mapFarmer)
 }
 
 export function updateFarmer(

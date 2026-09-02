@@ -152,9 +152,7 @@ function GroupRow({ group, lbPerTin, rowNo }: GroupRowProps & { rowNo: number })
   )
 }
 
-/** One date group: date header + group table with a column-wise Total row
- *  (plain sums of the displayed values — tin/extra decompose each group's
- *  net pound, exactly as the rows do; no other calculation). */
+/** One date group: date header + group table. */
 function DateGroupSection({
   date,
   groups,
@@ -165,19 +163,6 @@ function DateGroupSection({
   lbPerTin: number
 }): JSX.Element {
   const t = useT()
-  let bags = 0
-  let pound = 0
-  let tins = 0
-  let extraLb = 0
-  let amount = 0
-  for (const g of groups) {
-    bags += g.total_bags
-    pound += g.net_pound
-    const d = decomposeNetPound(g.net_pound, lbPerTin)
-    tins += d.tins
-    extraLb += d.extraLb
-    amount += g.total_amount
-  }
   return (
     <section className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Date group header — existing snapshot date, unchanged. */}
@@ -229,40 +214,6 @@ function DateGroupSection({
               />
             ))}
           </tbody>
-          <tfoot>
-            <tr className="border-t border-border bg-accent/10">
-              <td colSpan={4} className="px-2 py-2 text-right">
-                <Text role="primary" className="font-semibold text-accent">
-                  {t({ my: 'စုစုပေါင်း', en: 'Total' })}
-                </Text>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold">
-                  {formatNumber(bags)}
-                </Text>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold">
-                  {formatNumber(pound)}
-                </Text>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold">
-                  {formatTins(tins)}
-                </Text>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold">
-                  {formatNumber(extraLb)}
-                </Text>
-              </td>
-              <td className="px-2 py-2 text-right tabular-nums">
-                <Text role="primary" className="font-semibold text-accent">
-                  {formatMMK(amount)}
-                </Text>
-              </td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </section>
@@ -407,8 +358,7 @@ export function DashboardPage(): JSX.Element {
         farmers={view.farmerCount}
         lbPerTin={lbPerTin}
       />
-      {/* Per-date grouped tables (newest date first), each with a
-          column-wise Total row. */}
+      {/* Per-date grouped tables (newest date first). */}
       {view.dateGroups.length === 0 ? (
         <section className="rounded-lg border border-border bg-surface p-4">
           <Text role="muted">{t({ my: 'အရောင်းမှတ်တမ်း မရှိသေးပါ', en: 'No purchases yet' })}</Text>

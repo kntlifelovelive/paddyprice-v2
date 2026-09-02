@@ -205,7 +205,7 @@ export function RiceTypesPage(): JSX.Element {
                 {items.map((rt, idx) => (
                   <tr key={rt.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-1 text-right tabular-nums">
-                      <Text role="secondary">{items.length - idx}</Text>
+                      <Text role="secondary">{idx + 1}</Text>
                     </td>
                     <td className="px-2 py-1">
                       {editingId === rt.id ? (

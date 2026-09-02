@@ -47,7 +47,7 @@ export function getRiceType(db: Database, id: number): RiceType | null {
 }
 
 export function listRiceTypes(db: Database, activeOnly = false): RiceType[] {
-  const sql = `SELECT ${COLS} FROM rice_types${activeOnly ? ' WHERE active = 1' : ''} ORDER BY name COLLATE NOCASE`
+  const sql = `SELECT ${COLS} FROM rice_types${activeOnly ? ' WHERE active = 1' : ''} ORDER BY created_at DESC`
   return queryAll(db, sql).map(mapRiceType)
 }
 

@@ -9,7 +9,7 @@
  * the DAO accepts them; the page simply reuses the existing contracts.
  *
  * Step 11 §7 — newest-first display order; the table shows a No column where
- * the newest row has the highest No and `1` is at the bottom.
+ * the newest row is No. 1 at the top.
  */
 import { useEffect, useState } from 'react'
 
@@ -204,7 +204,7 @@ export function FarmersPage(): JSX.Element {
                 {items.map((f, idx) => (
                   <tr key={f.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-1 text-right tabular-nums">
-                      <Text role="secondary">{items.length - idx}</Text>
+                      <Text role="secondary">{idx + 1}</Text>
                     </td>
                     <td className="px-2 py-1">
                       {editingId === f.id ? (

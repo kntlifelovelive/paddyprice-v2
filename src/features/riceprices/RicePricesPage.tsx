@@ -251,7 +251,7 @@ export function RicePricesPage(): JSX.Element {
                 {items.map((p, idx) => (
                   <tr key={p.id} className="border-b border-border last:border-b-0 hover:bg-surface-hover">
                     <td className="w-10 px-2 py-2 text-right tabular-nums">
-                      <Text role="secondary">{items.length - idx}</Text>
+                      <Text role="secondary">{idx + 1}</Text>
                     </td>
                     <td className="px-2 py-2">
                       <Text role="primary">{p.date}</Text>

@@ -13,48 +13,13 @@
  */
 import { useState } from 'react'
 import { useT } from '@/shared/hooks'
-import { Text, cn } from '@/shared/ui'
+import { LockIcon, Text, cn } from '@/shared/ui'
 import { PatternPad } from './PatternPad'
 
 export type UnlockMethod = 'pattern' | 'pin'
 
 /** Chooser first (both methods) or straight into the single method's UI. */
 type LockMode = 'choose' | UnlockMethod
-
-/**
- * Animated padlock glyph. The lock body (rect) stays fixed; only the shackle
- * group translates upward to reveal the open-lock form. A CSS `transition` on
- * transform is reliably animated in every browser (animating SVG path `d` is not
- * reliably supported). On a successful unlock `open` flips true and the shackle
- * lifts smoothly; a wrong credential never flips `open`, so no unlock animation
- * plays. No Unicode, no fade, no spin, no bounce.
- */
-function LockGlyph({ open }: { open: boolean }): JSX.Element {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-label={open ? 'Unlocked' : 'Locked'}
-      className="shrink-0 h-7 w-7"
-    >
-      {/* Lock body — never moves. */}
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      {/* Shackle — translates up when the lock opens. */}
-      <g
-        style={{
-          transform: open ? 'translateY(-3px)' : 'translateY(0)',
-          transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        }}
-      >
-        <path d="M7 11V7a5 5 0 0 1 10 0" />
-      </g>
-    </svg>
-  )
-}
 
 export interface LockScreenProps {
   hasPattern: boolean
@@ -92,8 +57,6 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
   const [pin, setPin] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  /** Becomes true once a credential verifies successfully (drives the lock-open animation). */
-  const [unlocked, setUnlocked] = useState(false)
 
   async function submitPattern(points: number[]): Promise<void> {
     if (props.blocked || busy) return
@@ -102,7 +65,6 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
     const ok = await props.onUnlockWithPattern(points)
     setBusy(false)
     if (!ok) setError(t({ my: 'ပုံစံ မှားယွင်းနေပါသည်', en: 'Wrong pattern' }))
-    else setUnlocked(true)
   }
 
   async function submitPin(value: string): Promise<void> {
@@ -115,8 +77,6 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
     if (!ok) {
       setError(t({ my: 'PIN မှားယွင်းနေပါသည်', en: 'Wrong PIN' }))
       setPin('')
-    } else {
-      setUnlocked(true)
     }
   }
 
@@ -130,7 +90,7 @@ export function LockScreen(props: LockScreenProps): JSX.Element {
       <div className="w-full max-w-sm rounded-2xl border border-border bg-surface p-6 shadow-sm">
         <div className="flex flex-col items-center gap-2">
           <div className="rounded-full bg-surface-hover p-3 text-accent">
-            <LockGlyph open={unlocked} />
+            <LockIcon size="h-7 w-7" aria-label="Locked" />
           </div>
           {method === 'choose' && (
             <Text role="secondary" className="text-sm">

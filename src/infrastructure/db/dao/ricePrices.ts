@@ -78,7 +78,7 @@ export function listRicePrices(db: Database, filter: RicePriceFilter = {}): Rice
     params.push(filter.date)
   }
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : ''
-  const sql = `SELECT ${COLS} FROM rice_prices${where} ORDER BY date DESC, rice_type_id`
+  const sql = `SELECT ${COLS} FROM rice_prices${where} ORDER BY created_at DESC`
   return queryAll(db, sql, params).map(mapRicePrice)
 }
 
