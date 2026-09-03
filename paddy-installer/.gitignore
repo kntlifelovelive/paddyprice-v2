@@ -1,0 +1,11 @@
+# NEVER commit secrets or machine-specific release artifacts.
+# These live only in the deployed ~/paddy-install folder (outside this repo).
+keypass.txt
+master.pem
+master_pub.b64
+devices.reg
+paddy.apk
+*.jks
+*.keystore
+*.log
+tmp/

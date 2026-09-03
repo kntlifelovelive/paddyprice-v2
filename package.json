@@ -13,7 +13,8 @@
     "icons:android": "node scripts/build-android-icons.mjs",
     "cap:sync": "npm run build && node -e \"require('fs').rmSync('android/app/src/main/assets/public',{recursive:true,force:true})\" && cap sync android",
     "android:assemble:debug": "cd android && ./gradlew assembleDebug --no-daemon",
-    "android:assemble:release": "cd android && ./gradlew assembleRelease --no-daemon"
+    "android:assemble:release": "cd android && ./gradlew assembleRelease --no-daemon",
+    "release:android": "bash scripts/export-apk.sh"
   },
   "dependencies": {
     "@capacitor/filesystem": "^8.1.3",
