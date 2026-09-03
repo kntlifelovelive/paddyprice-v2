@@ -48,15 +48,16 @@ import type {
   FarmerReportPaddyTypeRow,
   FarmerReportPurchaseRow,
 } from '@/types/pdf';
-import { browserDownloadStorage } from '@/infrastructure/platform/fs';
+import { createPdfStorage } from '@/infrastructure/platform/fs';
 import type { StoragePort } from '@/types/storage';
 import * as loadSettings from '@/services/settings';
 import * as purchasesDao from '@/infrastructure/db/dao/purchases';
 import * as farmersDao from '@/infrastructure/db/dao/farmers';
 import * as riceTypesDao from '@/infrastructure/db/dao/riceTypes';
 import { getDatabase } from '@/infrastructure/db/connection';
-import { todayISO, splitDateTime } from '@/shared/format';
+import { formatTime12Short, todayISO, splitDateTime } from '@/shared/format';
 import { moistureAdjustedWeight } from '@/domain/paddy/moisture';
+import { decomposeNetPound } from '@/domain/paddy/tinBreakdown';
 import type { MoistureRates, MoistureLabelValue } from '@/domain/paddy/moisture';
 
 // Helpers to read settings fields (SettingsService.load returns Settings)
@@ -147,16 +148,22 @@ export async function generateVoucherPdf(
     weight_lb: moistureAdjustedWeight(bag.weight_lb, bag.moisture_label, rates),
   }));
 
+  // Single net-pound decomposition for the voucher — consomes the EXISTING
+  // domain result (`decomposeNetPound`), the same source the History table's
+  // Tin + Extra Lb columns use. Never independently calculated here.
+  const breakdown = decomposeNetPound(s.net_pound, loadSettings.settingsService.lbPerTin(db));
+
   const { date: datePart } = splitDateTime(s.date);
-  const generatedAt = todayISO();
-  const { date: genDate } = splitDateTime(generatedAt);
+  // Full ISO timestamp — the voucher's "Generated" line shows date AND time
+  // (reference behavior). Output data only; no calculation change.
+  const generatedAt = new Date().toISOString();
 
   const input: VoucherReportInput = {
     company,
     purchase_no: s.purchase_no,
     date: datePart,
-    purchase_time: '', // Time not stored separately in snapshot
-    generated_at: genDate,
+    purchase_time: s.created_at ? formatTime12Short(s.created_at) : '',
+    generated_at: generatedAt,
     farmer: { name: s.farmer_name, address: '', phone: '' },
     rice_type_name: s.rice_type_name,
     price_per_tin: s.price_per_tin,
@@ -167,6 +174,10 @@ export async function generateVoucherPdf(
     moisture_loss: s.moisture_loss,
     net_pound: s.net_pound,
     total_tins: s.total_tins,
+    // Tin + Extra lb mapped from the SAME domain decomposition — the same
+    // source/values the History table's Tin + Extra Lb columns show.
+    extra_lb: breakdown.extraLb,
+    tins_whole: breakdown.tins,
     total_amount: s.total_amount,
     remarks: '',
     finalized: s.finalized,
@@ -175,7 +186,7 @@ export async function generateVoucherPdf(
   const html = buildVoucherNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `voucher/${s.purchase_no}.pdf`;
-  return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
 /**
@@ -235,15 +246,19 @@ export async function generateBagWeightDetailsPdf(
         footer_text: getCompanyFooterText(db),
       },
       farmer_name: farmer.name,
+      farmer_address: farmer.address,
+      farmer_phone: farmer.phone,
       groups: [],
       generated_at: todayISO(),
       total_bags: 0,
       total_pound: 0,
+      page: page + 1,
+      total_pages: Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
     };
     const html = buildBagWeightNode(input);
     const pdfBytes = await htmlToPdf(html);
     const relativePath = `bagweights/farmer${farmerId}_page${page + 1}.pdf`;
-    return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+    return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
   }
 
   // Group by consecutive paddy type; bag sequence restarts at 1 for each group
@@ -262,7 +277,7 @@ export async function generateBagWeightDetailsPdf(
         rice_type_name: rtName,
         purchase_no: s.purchase_no,
         purchase_date: s.date.split('T')[0],
-        purchase_time: s.date.split('T')[1] ?? '00:00:00',
+        purchase_time: s.created_at ? formatTime12Short(s.created_at) : '',
         rows: [],
       };
       groups.push(currentGroup);
@@ -290,16 +305,20 @@ export async function generateBagWeightDetailsPdf(
       footer_text: getCompanyFooterText(db),
     },
     farmer_name: farmer.name,
+    farmer_address: farmer.address,
+    farmer_phone: farmer.phone,
     groups,
     generated_at: todayISO(),
     total_bags: totalBags,
     total_pound: totalPound,
+    page: page + 1,
+    total_pages: Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
   };
 
   const html = buildBagWeightNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `bagweights/farmer${farmerId}_page${page + 1}.pdf`;
-  return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
 /**
@@ -335,7 +354,7 @@ export async function generateYearlyPdf(
     const html = buildYearlyNode(input);
     const pdfBytes = await htmlToPdf(html);
     const relativePath = `yearly/${year}.pdf`;
-    return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+    return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
   }
 
   // Group by month
@@ -409,7 +428,7 @@ export async function generateYearlyPdf(
   const html = buildYearlyNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `yearly/${year}.pdf`;
-  return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
 /**
@@ -450,7 +469,7 @@ export async function generatePeriodSummaryPdf(
     const html = buildPeriodSummaryNode(input);
     const pdfBytes = await htmlToPdf(html);
     const relativePath = `period/${period}/${value.replace(/\//g, '-')}.pdf`;
-    return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+    return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
   }
 
   // Group by rice type
@@ -497,7 +516,7 @@ export async function generatePeriodSummaryPdf(
   const html = buildPeriodSummaryNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `period/${period}/${value.replace(/\//g, '-')}.pdf`;
-  return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
 /**
@@ -540,7 +559,7 @@ export async function generateFarmerReportPdf(
     const html = buildFarmerReportNode(input);
     const pdfBytes = await htmlToPdf(html);
     const relativePath = `farmer/farmer${farmerId}_${year ?? 'all'}.pdf`;
-    return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+    return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
   }
 
   // Yearly summary
@@ -610,5 +629,5 @@ export async function generateFarmerReportPdf(
   const html = buildFarmerReportNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `farmer/farmer${farmerId}_${year ?? 'all'}.pdf`;
-  return savePdf(storage ?? browserDownloadStorage, relativePath, pdfBytes);
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }

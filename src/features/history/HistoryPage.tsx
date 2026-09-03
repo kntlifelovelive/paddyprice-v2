@@ -20,7 +20,7 @@
  *   then the modal ConfirmDialog confirmation, as in the reference).
  * - Semantic theme text tokens only; no hard-coded colors.
  */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import type { Database } from 'sql.js'
 
@@ -31,6 +31,7 @@ import * as riceTypesDao from '@/infrastructure/db/dao/riceTypes'
 import { getHistoryRecords } from '@/services/reports'
 import { settingsService } from '@/services/settings'
 import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
+import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import { useT } from '@/shared/hooks'
 import {
   ConfirmDialog,
@@ -52,7 +53,7 @@ import {
   type CredentialAvailability,
 } from '@/services/security/credential-verify'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
-import { printReceipt } from '@/services/print/service'
+import { printerService } from '@/services/print/printerService'
 import type { PrintReceipt } from '@/types/print'
 
 interface HistoryData {
@@ -75,33 +76,40 @@ function loadHistory(db: Database): HistoryData {
   }
 }
 
-function buildReceipt(record: PurchaseRecord, lbPerTin: number, company: { name: string; address: string; phone: string }): PrintReceipt {
+function buildReceipt(
+  record: PurchaseRecord,
+  company: { name: string; address: string; phone: string },
+  farmer: { address: string; phone: string },
+): PrintReceipt {
   const s = record.snapshot
-  // Each purchase is for a single paddy type at a single price (DOMAIN_RULES §3).
-  // The receipt collapses all bags into one row using the snapshot values.
-  const totalPounds = record.bags.reduce((sum, b) => sum + b.weight_lb, 0)
+  // Reference receiptBuilder mapping (~/paddyprice): the receipt's row pounds
+  // and Total Pound come from the purchase's STORED totals (gross pound) and
+  // tins from the STORED total tins. All values are the snapshot's own —
+  // nothing is recomputed at output time.
   return {
     company_name: company.name,
     company_address: company.address,
     company_phone: company.phone,
     invoice_no: s.purchase_no,
     date: s.date.split('T')[0] ?? '',
-    time: '',
+    // The snapshot does not store the creation time; the reference prints a
+    // dash in the same situation (created_at unavailable).
+    time: '—',
     generated_at: new Date().toISOString(),
     farmer_name: s.farmer_name,
-    farmer_address: '',
-    farmer_phone: '',
+    farmer_address: farmer.address,
+    farmer_phone: farmer.phone,
     rows: [{
       rice_type_name: s.rice_type_name,
-      pounds: totalPounds || s.net_pound,
-      tins: s.net_pound / lbPerTin,
+      pounds: s.gross_pound,
+      tins: s.total_tins,
       price_100_tin: s.price_100_tin,
       price_per_tin: s.price_per_tin,
       amount: s.total_amount,
     }],
     bags: record.bags.map((b, i) => ({ seq: i + 1, weight_lb: b.weight_lb })),
-    total_pounds: s.net_pound,
-    total_tins: s.net_pound / lbPerTin,
+    total_pounds: s.gross_pound,
+    total_tins: s.total_tins,
     total_amount: s.total_amount,
     remark: '',
   }
@@ -112,6 +120,18 @@ export function HistoryPage() {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState<number | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Toast auto-dismisses after 3s (reference `show()` behavior). Fixes the
+  // reported bug where the PDF-export banner (e.g. share-sheet dismissal)
+  // never disappears from the UI.
+  useEffect(() => {
+    if (!flash) return
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(null), 3000)
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    }
+  }, [flash])
   // Bumped after a delete so the data memo re-reads from the database.
   const [reloadKey, setReloadKey] = useState(0)
   // Reference-concept view state — purely local UI filtering/sorting over the
@@ -224,17 +244,19 @@ export function HistoryPage() {
     }
   }
 
-  async function handlePrint(record: PurchaseRecord, lbPerTin: number): Promise<void> {
+  async function handlePrint(record: PurchaseRecord): Promise<void> {
+    if (!data?.data) return
     setBusyId(record.snapshot.id)
     try {
       const db = getDatabase()
       const s = settingsService.load(db)
-      const receipt = buildReceipt(record, lbPerTin, {
-        name: s.company_name,
-        address: s.company_address,
-        phone: s.company_phone,
-      })
-      printReceipt(receipt)
+      const farmer = data.data.farmers.find((f) => f.id === record.snapshot.farmer_id)
+      const receipt = buildReceipt(
+        record,
+        { name: s.company_name, address: s.company_address, phone: s.company_phone },
+        { address: farmer?.address ?? '', phone: farmer?.phone ?? '' },
+      )
+      await printerService.print(receipt)
       setFlash({ kind: 'ok', text: t({ my: 'ပရင့်ထုတ်နေသည်', en: 'Printing' }) })
     } catch (err) {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Print failed' })
@@ -259,6 +281,17 @@ export function HistoryPage() {
   }
 
   const { records, lbPerTin } = data.data
+  // Tin + Extra Lb per record — ONE decomposition from the EXISTING domain
+  // result (`decomposeNetPound`, the same source the per-farmer drilldown and
+  // the PDF voucher consume). The Tins column shows the whole-tin floor and
+  // the Extra Lb column shows its remainder — never two different calcs.
+  const breakdownById = useMemo(() => {
+    const m = new Map<number, ReturnType<typeof decomposeNetPound>>()
+    for (const r of records) {
+      m.set(r.snapshot.id, decomposeNetPound(r.snapshot.net_pound, lbPerTin))
+    }
+    return m
+  }, [records, lbPerTin])
   // Delete-lock is active when any App Lock credential is configured.
   const securityEnabled = data.data.cred.hasPattern || data.data.cred.hasPin
 
@@ -424,7 +457,7 @@ export function HistoryPage() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table data-testid="history-table" className="w-full min-w-[620px] text-sm">
+              <table data-testid="history-table" className="w-full min-w-[680px] text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface">
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'အစဉ်', en: 'NO' })}</th>
@@ -434,7 +467,8 @@ export function HistoryPage() {
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'စျေးနှုန်း', en: 'Price' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'အိတ်', en: 'Bags' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ပေါင်', en: 'Pound' })}</th>
-                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'တင်း', en: 'Tins' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'တင်း', en: 'Tin' })}</th>
+                    <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ပိုပေါင်', en: 'Extra Lb' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'ငွေ', en: 'Amount' })}</th>
                     <th className="px-2 py-2 text-right font-semibold text-content-header text-accent">{t({ my: 'လုပ်ဆောင်ချက်', en: 'Action' })}</th>
                   </tr>
@@ -470,7 +504,10 @@ export function HistoryPage() {
                         <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{s.total_bags}</td>
                         {/* NET pound (§3) — never gross or deduction. */}
                         <td className="px-2 py-2 text-right tabular-nums text-content-primary font-medium">{formatNumber(s.net_pound)}</td>
-                        <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{formatTins(s.total_tins)}</td>
+                        {/* Whole Tin + Extra Lb — both from the same domain
+                            decomposition (never the stored exact tins alone). */}
+                        <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{formatTins(breakdownById.get(s.id)?.tins ?? 0)}</td>
+                        <td className="px-2 py-2 text-right tabular-nums text-content-secondary">{formatNumber(breakdownById.get(s.id)?.extraLb ?? 0)}</td>
                         <td className="bg-accent/10 px-2 py-2 text-right tabular-nums text-accent font-semibold">{formatMMK(s.total_amount)}</td>
                         <td className="px-2 py-2">
                           <div className="flex items-center justify-end gap-1">
@@ -495,7 +532,7 @@ export function HistoryPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => { void handlePrint(record, lbPerTin) }}
+                              onClick={() => { void handlePrint(record) }}
                               disabled={busyId === s.id}
                               title={t({ my: 'ပရင့်', en: 'Print' })}
                               aria-label={t({ my: 'ပရင့်ထုတ်မည်', en: 'Print Receipt' })}

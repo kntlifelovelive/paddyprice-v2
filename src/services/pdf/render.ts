@@ -21,8 +21,35 @@ export const A4_HEIGHT_MM = 297
 /** Page margin in millimeters. */
 export const PAGE_MARGIN_MM = 10
 
-/** Maximum image height (mm) the rasterizer can render in one slice. */
-const SLICE_HEIGHT_MM = 250
+/**
+ * Reference pagination parity (~/paddyprice/src/services/pdf.ts pagesToPdf):
+ * each page is the FULL A4 area (210×297mm) drawn at (0,0). The templates
+ * carry their own page margins (36px/44px voucher & reports, 32px/44px bag
+ * weights, 10mm report skeleton), so the rasterizer adds NO extra margin and
+ * scales NOTHING — text renders at exactly the intended physical size at
+ * 100% viewing scale.
+ */
+
+/**
+ * Minimum amount of trailing content (mm) folded back into the previous page
+ * instead of emitting an extra page. Must stay ≤ the smallest template bottom
+ * padding (32px ≈ 8.5mm in the bag-weights template), so a folded remainder
+ * is ALWAYS blank padding — real content is never dropped. Large enough to
+ * swallow the rounding remainder of a tight fit, preventing a blank/near-blank
+ * trailing page.
+ */
+const MIN_TRAILING_PAGE_CONTENT_MM = 8
+
+/**
+ * Convert canvas pixels to content millimeters for a canvas rendered from an
+ * element that is `A4_WIDTH_MM` wide. The px↔mm conversion MUST go through
+ * the canvas WIDTH: the canvas height is the content height (variable), so
+ * relating it to A4_HEIGHT_MM would stretch/squash any content whose height
+ * is not exactly one A4 page (the old text-scale bug).
+ */
+export function canvasPxToMm(px: number, canvasWidthPx: number): number {
+  return (px * A4_WIDTH_MM) / canvasWidthPx
+}
 
 export interface PageImage {
   /** A PNG data URL. */
@@ -38,6 +65,23 @@ export interface PageImageSlice {
   heightMm: number
 }
 
+/**
+ * Plan A4 pages for a given content height (mm) WITHOUT actually slicing
+ * the canvas. Exposed for tests; the production pipeline calls
+ * `sliceCanvasForA4`, which calls into the same plan.
+ *
+ * Pagination rule (1 A4 page = 297mm of content; the templates carry their
+ * own margins, so the full A4 height is usable):
+ *   contentHeightMm <= A4_HEIGHT_MM + MIN_TRAILING_PAGE_CONTENT_MM -> 1 page
+ *   contentHeightMm >  A4_HEIGHT_MM + MIN_TRAILING_PAGE_CONTENT_MM
+ *       -> ceil(contentHeightMm / A4_HEIGHT_MM) pages
+ */
+export function planA4Pages(contentHeightMm: number): number {
+  if (contentHeightMm <= 0) return 1
+  if (contentHeightMm <= A4_HEIGHT_MM + MIN_TRAILING_PAGE_CONTENT_MM) return 1
+  return Math.ceil(contentHeightMm / A4_HEIGHT_MM)
+}
+
 export interface RenderOptions {
   /** A unique class prefix applied to the root element (test isolation). */
   rootClass?: string
@@ -47,7 +91,8 @@ export interface RenderOptions {
 
 /**
  * Render an HTML node to PDF bytes using the documented pipeline.
- * Each page is rasterized at 2x device pixel ratio for crisp output.
+ * The node is rasterized at 1.4x (reference parity; see below) and sliced
+ * into content-driven A4 pages.
  */
 export async function htmlToPdf(
   node: HTMLElement,
@@ -65,7 +110,9 @@ export async function htmlToPdf(
   // applied because rasterized HTML is taken straight from the DOM tree.
   node.style.backgroundColor = '#ffffff'
   node.style.color = '#111827'
-  node.style.padding = '0'
+  // Do NOT strip the node's own padding: the templates carry the reference
+  // page margins (36px/44px voucher & reports, 32px/44px bag weights, 10mm
+  // report skeleton) which must survive rasterization.
   node.style.fontFamily = '"Noto Sans Myanmar", "Myanmar Text", system-ui, sans-serif'
   document.body.appendChild(node)
 
@@ -75,7 +122,11 @@ export async function htmlToPdf(
     // call.
     const html2canvas = (await import('html2canvas')).default
     const canvas = await html2canvas(node, {
-      scale: 2,
+      // 1.4x like the reference (~/paddyprice/src/services/pdf.ts
+      // renderPageCanvas): a 2x scale on large multi-page reports inflated
+      // the Capacitor bridge payload and crashed Android with
+      // java.lang.OutOfMemoryError. 1.4x is crisp enough for print.
+      scale: 1.4,
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
@@ -88,14 +139,26 @@ export async function htmlToPdf(
 
 /**
  * Split a tall canvas into A4-page-sized PNG data URLs.
+ *
+ * Content-driven pagination: the canvas (rendered from an element
+ * A4_WIDTH_MM wide) is cut into full-A4-height (297mm) slices, exactly like
+ * the reference pagesToPdf renders one page-sized canvas per page. The
+ * templates carry their own margins, so slices are placed at (0,0) at full
+ * page width without extra margins or rescaling.
+ *
+ * A trailing slice representing very little content (below
+ * MIN_TRAILING_PAGE_CONTENT_MM — always blank template bottom padding) is
+ * folded into the previous page, so we never produce a blank or near-blank
+ * trailing page.
+ *
  * Exposed for tests and for templates that want to do their own assembly.
  */
-export function sliceCanvasForA4(
-  canvas: HTMLCanvasElement,
-  maxSliceHeightMm: number = SLICE_HEIGHT_MM,
-): PageImageSlice[] {
+export function sliceCanvasForA4(canvas: HTMLCanvasElement): PageImageSlice[] {
+  // Pixels that correspond to one full A4 page height. The canvas comes from
+  // an element A4_WIDTH_MM wide, so the px↔mm conversion goes through the
+  // WIDTH (see canvasPxToMm) — never through canvas.height vs A4_HEIGHT_MM.
   const sliceHeightPx = Math.floor(
-    (maxSliceHeightMm / A4_HEIGHT_MM) * canvas.height,
+    (A4_HEIGHT_MM * canvas.width) / A4_WIDTH_MM,
   )
   if (sliceHeightPx <= 0) return []
   const slices: PageImageSlice[] = []
@@ -122,10 +185,21 @@ export function sliceCanvasForA4(
       canvas.width,
       h,
     )
-    slices.push({
-      dataUrl: slice.toDataURL('image/png'),
-      heightMm: (h / canvas.height) * A4_HEIGHT_MM,
-    })
+    // Actual mm of content in this slice (width-based px↔mm conversion).
+    const sliceContentMm = canvasPxToMm(h, canvas.width)
+    // Fold near-blank trailing slices (always blank template padding, since
+    // MIN_TRAILING_PAGE_CONTENT_MM ≤ the smallest template bottom padding)
+    // into the previous page so we never emit a blank last page.
+    if (
+      slices.length > 0 &&
+      slices[slices.length - 1].heightMm + sliceContentMm <=
+        A4_HEIGHT_MM + MIN_TRAILING_PAGE_CONTENT_MM
+    ) {
+      // Merge into the previous slice (fold the remainder onto the last page).
+      slices[slices.length - 1].heightMm += sliceContentMm
+    } else {
+      slices.push({ dataUrl: slice.toDataURL('image/png'), heightMm: sliceContentMm })
+    }
     y += h
   }
   return slices
@@ -134,22 +208,20 @@ export function sliceCanvasForA4(
 function composePdfFromCanvas(canvas: HTMLCanvasElement): Uint8Array {
   const slices = sliceCanvasForA4(canvas)
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
-  // Available content height per page (mm) accounting for the margin.
-  const contentHeightMm = A4_HEIGHT_MM - 2 * PAGE_MARGIN_MM
-  // Scale slices to the printable width.
-  const sliceWidthMm = A4_WIDTH_MM - 2 * PAGE_MARGIN_MM
-  const sliceScale = sliceWidthMm / A4_WIDTH_MM
   for (let i = 0; i < slices.length; i += 1) {
     if (i > 0) pdf.addPage()
     const slice = slices[i]
-    const renderHeight = Math.min(slice.heightMm * sliceScale, contentHeightMm)
+    // Reference pagesToPdf parity: full-width image at (0,0) — the template
+    // carries its own margins, so no extra margin and no rescaling (which
+    // previously shrank all text to 90.5%). Only the folded blank remainder
+    // is clamped to the page height.
     pdf.addImage(
       slice.dataUrl,
       'PNG',
-      PAGE_MARGIN_MM,
-      PAGE_MARGIN_MM,
-      sliceWidthMm,
-      renderHeight,
+      0,
+      0,
+      A4_WIDTH_MM,
+      Math.min(slice.heightMm, A4_HEIGHT_MM),
     )
   }
   return new Uint8Array(pdf.output('arraybuffer') as ArrayBuffer)
@@ -210,7 +282,9 @@ export function footerLines(lines: FooterLine[]): HTMLElement {
 export function buildDocumentSkeleton(title: string): HTMLElement {
   const root = document.createElement('div')
   root.style.width = `${A4_WIDTH_MM}mm`
-  root.style.minHeight = `${A4_HEIGHT_MM}mm`
+  // NO minHeight: the canvas sizes to actual content, which lets the
+  // pagination logic (planA4Pages / sliceCanvasForA4) produce exactly the
+  // right page count without forcing a 297mm canvas and a spurious 2nd page.
   root.style.padding = `${PAGE_MARGIN_MM}mm`
   root.style.boxSizing = 'border-box'
   root.style.background = '#ffffff'

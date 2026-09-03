@@ -80,6 +80,18 @@ export interface VoucherReportInput {
   moisture_loss: number
   net_pound: number
   total_tins: number
+  /**
+   * Extra lb of the net-pound decomposition — mapped from the EXISTING domain
+   * result (`decomposeNetPound`, services/pdf/service.ts). Same source the
+   * History table's Extra Lb column consumes.
+   */
+  extra_lb: number
+  /**
+   * Whole-tin count of the SAME net-pound decomposition (`decomposeNetPound(...).tins`).
+   * The voucher's Tin column renders this (floor), never the stored exact
+   * `total_tins` — so Tin + Extra Lb always present one consistent result.
+   */
+  tins_whole: number
   total_amount: number
   /** Optional notes / remarks. */
   remarks?: string
@@ -109,6 +121,9 @@ export interface BagWeightPaddyTypeGroup {
 export interface BagWeightReportInput {
   company: VoucherReportInput['company']
   farmer_name: string
+  /** Optional customer contact lines shown in the INFORMATION block. */
+  farmer_address?: string
+  farmer_phone?: string
   /** One entry per (purchase, paddy type) pair. */
   groups: BagWeightPaddyTypeGroup[]
   generated_at: string
@@ -116,6 +131,10 @@ export interface BagWeightReportInput {
   total_bags: number
   /** Total moisture-adjusted pound across all groups. */
   total_pound: number
+  /** 1-based page number shown in the page footer (default 1). */
+  page?: number
+  /** Total page count shown in the page footer (default 1). */
+  total_pages?: number
 }
 
 /* ------------------------------------------------------------------ */

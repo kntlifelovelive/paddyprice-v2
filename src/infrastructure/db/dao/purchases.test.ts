@@ -94,6 +94,20 @@ describe('purchase DAO (persistence + snapshot isolation)', () => {
     expect(getPurchaseByNumber(db, 'PSO-202608-0001')?.snapshot.id).toBe(id)
   })
 
+  it('carries the recorded created_at timestamp into the snapshot (PDF Purchase Time)', async () => {
+    const db = await createTestDatabase()
+    const { farmer, type } = seed(db)
+    // createPurchase stamps created_at/updated_at with the caller-provided now.
+    const NOW = '2026-08-01T09:15:30.000Z'
+    const id = createPurchase(
+      db,
+      makeRecord({ snapshot: makeSnapshot({ farmer_id: farmer.id, rice_type_id: type.id }) }),
+      NOW,
+    )
+    const s = getPurchase(db, id)?.snapshot
+    expect(s?.created_at).toBe(NOW)
+  })
+
   it('rejects a duplicate purchase number', async () => {
     const db = await createTestDatabase()
     const { farmer, type } = seed(db)

@@ -72,6 +72,12 @@ export function IconFingerprint(p: IconProps): JSX.Element {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M2 12a10 10 0 0 1 18-6" /><path d="M2 16v-2a6 6 0 0 1 12 0c0 .5-.05 1.14-.12 1.81" /><path d="M12 12a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" /><path d="M14 13.12c0 2.38 0 6.38-1 8.88" /><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" /><path d="M20.26 15.01c.29-.9.5-1.9.55-2.9" /></svg>
 }
 
+/** Shield icon (Security section) — reference SettingsIcons.IconShield. */
+export function IconShield(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></svg>
+}
+
 export function IconPattern(p: IconProps): JSX.Element {
   const { size = D, className = '', 'aria-label': label } = p
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><circle cx="5" cy="5" r="1.5" /><circle cx="12" cy="5" r="1.5" /><circle cx="19" cy="5" r="1.5" /><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /><circle cx="5" cy="19" r="1.5" /><circle cx="12" cy="19" r="1.5" /><circle cx="19" cy="19" r="1.5" /></svg>
@@ -90,4 +96,27 @@ export function IconMapPin(p: IconProps): JSX.Element {
 export function IconDroplet(p: IconProps): JSX.Element {
   const { size = D, className = '', 'aria-label': label } = p
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" /></svg>
+}
+
+export function IconPrinter(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+}
+
+/** Clipboard / copy icon (number of receipt copies). */
+export function IconCopy(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+}
+
+/** Link / connect icon (scan & connect). */
+export function IconLink(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+}
+
+/** Ruler icon (paper width). */
+export function IconRuler(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></svg>
 }

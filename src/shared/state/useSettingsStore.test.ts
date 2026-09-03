@@ -14,6 +14,11 @@ const BASE_SETTINGS: Settings = {
   theme: 'tokyo-night',
   font_size: 'normal',
   language: 'my',
+  printer_type: 'none',
+  paper_width: '58',
+  copies: 1,
+  printer_device_address: '',
+  printer_device_name: '',
 }
 
 describe('useSettingsStore (shared/state)', () => {

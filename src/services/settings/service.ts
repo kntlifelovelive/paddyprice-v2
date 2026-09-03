@@ -19,10 +19,13 @@ import { normalizeTheme } from '@/shared/theme'
 import { normalizeLanguage } from '@/shared/i18n'
 import { useSettingsStore } from '@/shared/state'
 import * as settingsDao from '@/infrastructure/db/dao/settings'
+import type { PaperWidth, PrinterType } from '@/types/print'
 import type { Settings, SettingsKey } from '@/types'
 
 const FONT_SIZES = ['small', 'normal', 'large', 'xlarge'] as const
 const LANGUAGES = ['my', 'en'] as const
+const PRINTER_TYPES: PrinterType[] = ['none', 'mock', 'bluetooth', 'desktop']
+const PAPER_WIDTHS: PaperWidth[] = ['58', '80']
 
 /**
  * Step 11 §2 — default language resolution lives in `shared/i18n` (English).
@@ -44,6 +47,20 @@ function storedMoistureRates(db: Database): MoistureRates {
   return resolveMoistureRates(parsed)
 }
 
+function resolvePrinterType(raw: string | undefined): PrinterType {
+  return PRINTER_TYPES.includes(raw as PrinterType) ? (raw as PrinterType) : 'none'
+}
+
+function resolvePaperWidth(raw: string | undefined): PaperWidth {
+  return PAPER_WIDTHS.includes(raw as PaperWidth) ? (raw as PaperWidth) : '58'
+}
+
+function resolveCopies(raw: string | undefined): number {
+  const n = raw ? Number(raw) : NaN
+  if (!Number.isFinite(n)) return 1
+  return Math.max(1, Math.min(5, Math.trunc(n)))
+}
+
 /** Build the typed `Settings` object from the stored key/value rows. */
 function loadSettings(db: Database): Settings {
   const raw = settingsDao.getAllSettings(db)
@@ -61,6 +78,11 @@ function loadSettings(db: Database): Settings {
       ? (raw.font_size as Settings['font_size'])
       : 'normal',
     language: resolveLanguage(raw.language),
+    printer_type: resolvePrinterType(raw.printer_type),
+    paper_width: resolvePaperWidth(raw.paper_width),
+    copies: resolveCopies(raw.copies),
+    printer_device_address: raw.printer_device_address ?? '',
+    printer_device_name: raw.printer_device_name ?? '',
   }
 }
 

@@ -1,16 +1,17 @@
 /**
- * Thermal print service — renders a receipt to HTML and triggers the browser
- * print dialog. The receipt content mirrors the PrintReceipt model defined in
- * src/types/print.ts (built from saved SQLite purchase records only).
+ * Thermal print service — formats the receipt with the REFERENCE project's
+ * thermal text format (ported in ./receiptText: 58mm ≈ 32 chars / 80mm ≈ 48
+ * chars per line) and triggers the browser print dialog with that exact text.
  *
- * No hardware-specific integration in this phase — the browser's native print
- * dialog is the print target on all platforms. Hardware thermal printer
- * support (Capacitor Bluetooth adapter) is a future step.
+ * The receipt content is the PrintReceipt model defined in src/types/print.ts
+ * (built from saved SQLite purchase records only). No hardware-specific
+ * integration in this phase — the browser's native print dialog is the print
+ * target on all platforms. Hardware Bluetooth thermal transport requires the
+ * reference project's custom native Capacitor plugin (see REPORT) and is NOT
+ * added here.
  */
-import type { PrintReceipt } from '@/types/print'
-import { formatMMK } from '@/shared/format'
-
-const RECEIPT_WIDTH = '58mm'
+import type { PaperWidth, PrintReceipt } from '@/types/print'
+import { formatReceiptText } from './receiptText'
 
 function escapeHtml(text: string): string {
   return text
@@ -20,71 +21,36 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function buildReceiptHtml(receipt: PrintReceipt): string {
-  const lines: string[] = []
-  const W = RECEIPT_WIDTH
-
-  function row(label: string, value: string): string {
-    return `<div style="display:flex;justify-content:space-between;font-size:12px;line-height:1.5;margin:2px 0"><span style="text-align:left;flex:1">${escapeHtml(label)}</span><span style="text-align:right;flex:1">${escapeHtml(value)}</span></div>`
-  }
-
-  function header(text: string, align = 'center'): string {
-    return `<div style="text-align:${align};font-size:13px;font-weight:bold;margin:4px 0 2px">${escapeHtml(text)}</div>`
-  }
-
-  function divider(): string {
-    return `<div style="border-top:1px dashed #999;margin:4px 0"></div>`
-  }
-
-  lines.push('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt</title><style>@media print { @page { margin: 4mm; size: 58mm auto; } body { width: ' + W + '; margin: 0 auto; font-family: "Noto Sans Myanmar","Myanmar Text",monospace; color: #000; background: #fff; } } body { width: ' + W + '; margin: 0 auto; padding: 4px; font-family: "Noto Sans Myanmar","Myanmar Text",monospace; font-size: 12px; line-height: 1.4; color: #000; background: #fff; }</style></head><body>')
-
-  lines.push(header(receipt.company_name || 'Paddy Price'))
-  if (receipt.company_address) lines.push(header(receipt.company_address))
-  if (receipt.company_phone) lines.push(header(receipt.company_phone))
-  lines.push(divider())
-  lines.push(row('Invoice No:', receipt.invoice_no))
-  lines.push(row('Date:', receipt.date))
-  lines.push(row('Time:', receipt.time))
-  lines.push(divider())
-  lines.push(header('Customer'))
-  lines.push(row('Name:', receipt.farmer_name))
-  if (receipt.farmer_address) lines.push(row('Address:', receipt.farmer_address))
-  if (receipt.farmer_phone) lines.push(row('Phone:', receipt.farmer_phone))
-  lines.push(divider())
-  lines.push(header('Items'))
-
-  for (const r of receipt.rows) {
-    lines.push('<div style="font-size:12px;margin:2px 0">' + escapeHtml(r.rice_type_name) + '</div>')
-    lines.push(row('Lbs:', r.pounds.toFixed(0) + ' lb'))
-    lines.push(row('Tin:', r.tins.toFixed(3)))
-    lines.push(row('Price:', formatMMK(r.price_100_tin)))
-    lines.push(row('Amount:', formatMMK(r.amount)))
-  }
-
-  lines.push(divider())
-  lines.push(header('Summary'))
-  lines.push(row('Total Pound:', receipt.total_pounds.toFixed(0) + ' lb'))
-  lines.push(row('Total Tin:', receipt.total_tins.toFixed(3)))
-  lines.push(row('Total Amount:', formatMMK(receipt.total_amount)))
-  lines.push(divider())
-
-  if (receipt.remark) {
-    lines.push(header('Remark'))
-    lines.push('<div style="font-size:11px;margin:2px 0">' + escapeHtml(receipt.remark) + '</div>')
-  }
-
-  lines.push('<div style="text-align:center;font-size:10px;margin-top:6px">' + escapeHtml(receipt.generated_at) + '</div>')
-  lines.push('</body></html>')
-  return lines.join('\n')
+/**
+ * Build the print-window HTML: the reference thermal receipt text, rendered
+ * verbatim in a monospace block so spacing/alignment match the ESC/POS output.
+ */
+function buildReceiptHtml(receipt: PrintReceipt, paperWidth: PaperWidth): string {
+  const W = paperWidth === '80' ? '80mm' : '58mm'
+  const text = formatReceiptText(receipt, paperWidth)
+  return [
+    '<!DOCTYPE html><html><head><meta charset="UTF-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<title>Receipt</title>',
+    '<style>@media print { @page { margin: 4mm; size: ' + W + ' auto; } }',
+    'body { width: ' + W + '; margin: 0 auto; padding: 4px; box-sizing: border-box;',
+    'font-family: "Noto Sans Myanmar", "Myanmar Text", monospace; font-size: 12px;',
+    'line-height: 1.35; color: #000; background: #fff; white-space: pre; }</style>',
+    '</head><body>',
+    escapeHtml(text),
+    '</body></html>',
+  ].join('')
 }
 
 /**
  * Print a purchase receipt using the browser's native print dialog.
- * Returns true if the print window was opened.
+ * The output format is the reference thermal format at the given paper width
+ * (default 58mm). Returns true if the print window was opened.
  */
-export function printReceipt(receipt: PrintReceipt): boolean {
+export function printReceipt(receipt: PrintReceipt, options?: { paperWidth?: PaperWidth }): boolean {
   if (typeof window === 'undefined') return false
-  const html = buildReceiptHtml(receipt)
+  const paperWidth: PaperWidth = options?.paperWidth ?? '58'
+  const html = buildReceiptHtml(receipt, paperWidth)
   const printWindow = window.open('', '_blank', 'width=400,height=600')
   if (!printWindow) return false
   printWindow.document.open()

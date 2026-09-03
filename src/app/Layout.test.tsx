@@ -19,6 +19,11 @@ const EN_SETTINGS: Settings = {
   theme: 'tokyo-night',
   font_size: 'normal',
   language: 'en',
+  printer_type: 'none',
+  paper_width: '58',
+  copies: 1,
+  printer_device_address: '',
+  printer_device_name: '',
 }
 
 function renderHome(): string {

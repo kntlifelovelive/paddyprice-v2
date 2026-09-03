@@ -29,20 +29,25 @@ import { useT } from '@/shared/hooks'
 import type { Settings } from '@/types'
 import { BackIcon, Text, cn } from '@/shared/ui'
 import { SecurityTab } from '@/features/security/SecurityTab'
+import { PrinterTab } from './PrinterTab'
+import { BackupTab } from './BackupTab'
 import { SettingsNavItem, SettingsSection, SettingsRow } from '@/shared/ui/settings'
 import {
   IconBuilding,
   IconCalculator,
   IconDroplet,
-  IconFingerprint,
   IconGlobe,
   IconMapPin,
   IconPalette,
   IconPhone,
+  IconPrinter,
+  IconDatabase,
+  IconShield,
   IconTextSize,
 } from '@/shared/ui/settings/icons'
 
-type Tab = 'company' | 'theme' | 'language' | 'font' | 'tin' | 'moisture' | 'security'
+
+type Tab = 'company' | 'theme' | 'language' | 'font' | 'tin' | 'moisture' | 'security' | 'backup' | 'printer'
 
 interface DraftState {
   company_name: string
@@ -55,6 +60,9 @@ interface DraftState {
   language: 'my' | 'en'
   font_size: FontSizeId
   moisture_rates: MoistureRates
+  printer_type: 'none' | 'mock' | 'bluetooth' | 'desktop'
+  paper_width: '58' | '80'
+  copies: number
 }
 
 function toDraft(s: Settings | null): DraftState {
@@ -69,6 +77,9 @@ function toDraft(s: Settings | null): DraftState {
     language: s?.language ?? 'en',
     font_size: s?.font_size ?? 'normal',
     moisture_rates: s?.moisture_rates ?? { 17: 1, 18: 2, 19: 3, 20: 4 },
+    printer_type: s?.printer_type ?? 'none',
+    paper_width: s?.paper_width ?? '58',
+    copies: s?.copies ?? 1,
   }
 }
 
@@ -174,6 +185,12 @@ export function SettingsPage(): JSX.Element {
           title: t({ my: 'အပြင်အဆင်', en: 'Themes' }),
           subtitle: THEMES.find((th) => th.id === draft.theme)?.name ?? draft.theme,
         },
+        {
+          id: 'printer',
+          icon: <IconPrinter />,
+          title: t({ my: 'ပရင်တာ', en: 'Printer' }),
+          subtitle: draft.printer_type === 'none' ? t({ my: 'မရွေးထားပါ', en: 'None' }) : draft.printer_type,
+        },
       ],
     },
     {
@@ -209,9 +226,15 @@ export function SettingsPage(): JSX.Element {
       items: [
         {
           id: 'security',
-          icon: <IconFingerprint />,
+          icon: <IconShield />,
           title: t({ my: 'လုံခြုံမှု', en: 'Security' }),
           subtitle: t({ my: 'ပုံစံနှင့် PIN', en: 'Pattern & PIN' }),
+        },
+        {
+          id: 'backup',
+          icon: <IconDatabase />,
+          title: t({ my: 'Backup & Restore', en: 'Backup & Restore' }),
+          subtitle: t({ my: 'အရံအထောက် / ပြန်ထည့်ခြင်း', en: 'Backup and restore app data' }),
         },
       ],
     },
@@ -303,6 +326,17 @@ export function SettingsPage(): JSX.Element {
           )}
           {tab === 'security' && (
             <SecurityTab t={t} />
+          )}
+          {tab === 'backup' && (
+            <BackupTab t={t} />
+          )}
+          {tab === 'printer' && (
+            <PrinterTab
+              printerType={draft.printer_type}
+              paperWidth={draft.paper_width}
+              copies={draft.copies}
+              onUpdate={(key, value) => commit(key, value as never)}
+            />
           )}
         </div>
       </div>
@@ -566,18 +600,29 @@ function MoistureTab({
   commitMoisture: (rates: MoistureRates) => void
   t: ReturnType<typeof useT>
 }): JSX.Element {
-  const [localRates, setLocalRates] = useState<MoistureRates>(draft.moisture_rates)
+  // Rate inputs keep their RAW TEXT while editing. A controlled numeric value
+  // that snaps empty input back to 0 makes the zero impossible to clear —
+  // typing "17" produced "017"/"01". Numbers are normalized only on blur/save.
+  const ratesToText = (rates: MoistureRates): Record<MoistureLabel, string> =>
+    Object.fromEntries(
+      MOISTURE_LABEL_OPTIONS.map((label) => [label, String(rates[label] ?? 0)]),
+    ) as Record<MoistureLabel, string>
+
+  const [localRates, setLocalRates] = useState<Record<MoistureLabel, string>>(() =>
+    ratesToText(draft.moisture_rates),
+  )
 
   useEffect(() => {
-    setLocalRates(draft.moisture_rates)
+    setLocalRates(ratesToText(draft.moisture_rates))
   }, [draft.moisture_rates])
 
-  const updateRate = (label: MoistureLabel, value: number) => {
-    setLocalRates((r) => ({ ...r, [label]: Number.isFinite(value) && value >= 0 ? value : 0 }))
+  const parseRate = (text: string): number => {
+    const n = Number(text)
+    return Number.isFinite(n) && n >= 0 ? n : 0
   }
 
   const dirty = MOISTURE_LABEL_OPTIONS.some(
-    (label) => localRates[label] !== draft.moisture_rates[label],
+    (label) => parseRate(localRates[label]) !== draft.moisture_rates[label],
   )
 
   return (
@@ -595,8 +640,10 @@ function MoistureTab({
               type="number"
               min={0}
               step={1}
+              inputMode="numeric"
               value={localRates[label]}
-              onChange={(e) => updateRate(label, Number(e.target.value))}
+              onChange={(e) => setLocalRates((r) => ({ ...r, [label]: e.target.value }))}
+              onBlur={() => setLocalRates((r) => ({ ...r, [label]: String(parseRate(r[label])) }))}
               className="w-24 rounded border border-border bg-background px-2 py-1 text-sm text-content-primary tabular-nums"
             />
           }
@@ -615,7 +662,13 @@ function MoistureTab({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => commitMoisture(localRates)}
+              onClick={() =>
+                commitMoisture(
+                  Object.fromEntries(
+                    MOISTURE_LABEL_OPTIONS.map((label) => [label, parseRate(localRates[label])]),
+                  ) as MoistureRates,
+                )
+              }
               disabled={!dirty}
               className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-text transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
@@ -623,7 +676,7 @@ function MoistureTab({
             </button>
             <button
               type="button"
-              onClick={() => setLocalRates(draft.moisture_rates)}
+              onClick={() => setLocalRates(ratesToText(draft.moisture_rates))}
               disabled={!dirty}
               className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-50"
             >

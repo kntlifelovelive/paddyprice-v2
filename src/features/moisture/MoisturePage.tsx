@@ -39,7 +39,12 @@ export function MoisturePage(): JSX.Element {
   const [farmerId, setFarmerId] = useState<number | null>(null)
   const [riceTypeId, setRiceTypeId] = useState<number | null>(null)
   const [label, setLabel] = useState<MoistureLabelValue>(null)
-  const [status, setStatus] = useState<'default' | 'active'>('active')
+  // Reference parity (~/paddyprice MoisturePage): a fresh form starts as
+  // 'default'. Starting at 'active' forced "Moisture Label is required" on
+  // every first Save (active configs must carry a label), which made the
+  // configuration appear unsavable on Android. Active is reached via the
+  // toggle; a Default config needs no label.
+  const [status, setStatus] = useState<'default' | 'active'>('default')
   const [error, setError] = useState<string | null>(null)
   // UI-only: which config row was loaded into the form via the Edit action.
   // Save still goes through the existing setMoistureConfig upsert — no new
@@ -92,7 +97,7 @@ export function MoisturePage(): JSX.Element {
       setFarmerId(null)
       setRiceTypeId(null)
       setLabel(null)
-      setStatus('active')
+      setStatus('default')
       setEditingId(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

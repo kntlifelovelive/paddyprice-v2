@@ -34,6 +34,7 @@ function mapSnapshot(row: Row): PurchaseSnapshot {
     id: Number(row.id),
     purchase_no: String(row.purchase_no),
     date: String(row.date),
+    created_at: row.created_at == null ? undefined : String(row.created_at),
     farmer_id: Number(row.farmer_id),
     farmer_name: String(row.farmer_name),
     rice_type_id: Number(row.rice_type_id),

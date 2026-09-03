@@ -17,6 +17,7 @@ import type {
   MoistureLabelValue,
   MoistureRates,
 } from '@/domain/paddy/moisture'
+import type { PaperWidth, PrinterType } from '@/types/print'
 
 /** §6.2 — the data needed to establish a new purchase session. */
 export interface NewPurchaseInput {
@@ -97,6 +98,16 @@ export interface Settings {
   theme: string
   font_size: 'small' | 'normal' | 'large' | 'xlarge'
   language: 'my' | 'en'
+  /** Selected printer adapter (settings-persisted). */
+  printer_type: PrinterType
+  /** Thermal paper width: 58mm ≈ 32 chars / 80mm ≈ 48 chars per line. */
+  paper_width: PaperWidth
+  /** Number of receipt copies (1-5). */
+  copies: number
+  /** Last-connected Bluetooth device address (empty when none). */
+  printer_device_address: string
+  /** Last-connected Bluetooth device name (empty when none). */
+  printer_device_name: string
 }
 
 /** Settings keys that can be updated at runtime (subset of the settings table). */

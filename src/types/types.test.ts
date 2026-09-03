@@ -22,6 +22,11 @@ describe('src/types contracts (Step 3 type surface)', () => {
       theme: 'tokyo-night',
       font_size: 'normal',
       language: 'my',
+      printer_type: 'none',
+      paper_width: '58',
+      copies: 1,
+      printer_device_address: '',
+      printer_device_name: '',
     }
     expect(settings.moisture_rates[18]).toBe(2)
   })

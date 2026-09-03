@@ -17,6 +17,10 @@ export interface PurchaseSnapshot {
   purchase_no: string;
   /** Purchase date, `YYYY-MM-DD`. */
   date: string;
+  /** ISO timestamp the purchase was recorded — the voucher's "Purchase Time"
+   * (reference parity: the reference PDF reads it from the purchase record's
+   * created_at). Only present when the row exposes it. */
+  created_at?: string;
   farmer_id: number;
   farmer_name: string;
   rice_type_id: number;

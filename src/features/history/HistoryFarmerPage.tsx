@@ -6,7 +6,7 @@
  * Same display contracts as the main History page (NET pound, Tin + Extra Lb).
  * Per-row actions: PDF (voucher) and Print (thermal receipt).
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { getDatabase } from '@/infrastructure/db'
@@ -18,7 +18,7 @@ import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/for
 import { useT } from '@/shared/hooks'
 import { BackIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
-import { printReceipt } from '@/services/print/service'
+import { printerService } from '@/services/print/printerService'
 import type { PrintReceipt } from '@/types/print'
 import type { PurchaseRecord } from '@/types'
 
@@ -35,31 +35,39 @@ interface PageData {
   purchaseCount: number
 }
 
-function buildReceipt(record: PurchaseRecord, lbPerTin: number, company: { name: string; address: string; phone: string }): PrintReceipt {
+function buildReceipt(
+  record: PurchaseRecord,
+  company: { name: string; address: string; phone: string },
+  farmer: { address: string; phone: string },
+): PrintReceipt {
   const s = record.snapshot
-  const totalPounds = record.bags.reduce((sum, b) => sum + b.weight_lb, 0)
+  // Reference receiptBuilder mapping (~/paddyprice): row pounds / Total Pound
+  // = the purchase's STORED totals (gross pound); tins = the STORED total
+  // tins. Nothing is recomputed at output time.
   return {
     company_name: company.name,
     company_address: company.address,
     company_phone: company.phone,
     invoice_no: s.purchase_no,
     date: s.date.split('T')[0] ?? '',
-    time: '',
+    // The snapshot does not store the creation time; the reference prints a
+    // dash in the same situation (created_at unavailable).
+    time: '—',
     generated_at: new Date().toISOString(),
     farmer_name: s.farmer_name,
-    farmer_address: '',
-    farmer_phone: '',
+    farmer_address: farmer.address,
+    farmer_phone: farmer.phone,
     rows: [{
       rice_type_name: s.rice_type_name,
-      pounds: totalPounds || s.net_pound,
-      tins: s.net_pound / lbPerTin,
+      pounds: s.gross_pound,
+      tins: s.total_tins,
       price_100_tin: s.price_100_tin,
       price_per_tin: s.price_per_tin,
       amount: s.total_amount,
     }],
     bags: record.bags.map((b, i) => ({ seq: i + 1, weight_lb: b.weight_lb })),
-    total_pounds: s.net_pound,
-    total_tins: s.net_pound / lbPerTin,
+    total_pounds: s.gross_pound,
+    total_tins: s.total_tins,
     total_amount: s.total_amount,
     remark: '',
   }
@@ -74,6 +82,17 @@ export function HistoryFarmerPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Toast auto-dismisses after 3s (reference `show()` behavior) — a stuck
+  // PDF-export banner is exactly the reported bug.
+  useEffect(() => {
+    if (!flash) return
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(null), 3000)
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    }
+  }, [flash])
   // Reference-concept toolbar action: Bag Weights PDF for this customer
   // (backed by P2's existing bag-weights PDF service).
   const [bagPdfBusy, setBagPdfBusy] = useState(false)
@@ -122,8 +141,12 @@ export function HistoryFarmerPage(): JSX.Element {
     try {
       const db = getDatabase()
       const s = settingsService.load(db)
-      const receipt = buildReceipt(record, data.lbPerTin, { name: s.company_name, address: s.company_address, phone: s.company_phone })
-      printReceipt(receipt)
+      const receipt = buildReceipt(
+        record,
+        { name: s.company_name, address: s.company_address, phone: s.company_phone },
+        { address: data.farmerAddress, phone: data.farmerPhone },
+      )
+      await printerService.print(receipt)
       setFlash({ kind: 'ok', text: t({ my: 'ပရင့်ထုတ်နေသည်', en: 'Printing' }) })
     } catch (err) {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Print failed' })

@@ -85,6 +85,35 @@ export function exportDatabaseBytes(): Uint8Array {
   return getDatabase().export()
 }
 
+/**
+ * Validate raw SQLite bytes WITHOUT touching the live database: opens a
+ * throwaway connection, checks the required user-data tables exist, and
+ * closes it. Used by the backup service before a restore swap so an invalid
+ * image can never leave the app without a working database.
+ */
+export function probeDatabase(bytes: Uint8Array): { ok: true } | { ok: false; error: string } {
+  if (!SQL) throw new Error('sql.js is not initialized — call openDatabase() first')
+  let probe: Database | null = null
+  try {
+    probe = new SQL.Database(bytes)
+    const tables = new Set(
+      probe.exec(
+        "SELECT name FROM sqlite_master WHERE type='table'",
+      )[0]?.values.map((row) => String(row[0])) ?? [],
+    )
+    for (const required of ['settings', 'farmers', 'purchases', 'schema_migrations']) {
+      if (!tables.has(required)) return { ok: false, error: `missing table: ${required}` }
+    }
+    const integrity = probe.exec('PRAGMA integrity_check')[0]?.values[0]?.[0]
+    if (String(integrity) !== 'ok') return { ok: false, error: `integrity: ${String(integrity)}` }
+    return { ok: true }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  } finally {
+    probe?.close()
+  }
+}
+
 /** Run `work` inside BEGIN/COMMIT; rolls back on any error. */
 export function transaction<T>(database: Database, work: (d: Database) => T): T {
   database.run('BEGIN')
