@@ -118,5 +118,11 @@ export function IconLink(p: IconProps): JSX.Element {
 /** Ruler icon (paper width). */
 export function IconRuler(p: IconProps): JSX.Element {
   const { size = D, className = '', 'aria-label': label } = p
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></svg>
+    return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></svg>
+}
+
+/** Smartphone icon (device activation). */
+export function IconSmartphone(p: IconProps): JSX.Element {
+  const { size = D, className = '', 'aria-label': label } = p
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-label={label} className={`${size} ${className}`}><rect x="7" y="2" width="10" height="20" rx="2.5" /><line x1="12" y1="18" x2="12.01" y2="18" /><path d="M12 7v3a2 2 0 0 0 2 2h3" /></svg>
 }

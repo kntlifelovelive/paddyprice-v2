@@ -29,6 +29,7 @@ import { useT } from '@/shared/hooks'
 import type { Settings } from '@/types'
 import { BackIcon, Text, cn } from '@/shared/ui'
 import { SecurityTab } from '@/features/security/SecurityTab'
+import { DeviceActivationTab } from '@/features/security/DeviceActivationTab'
 import { PrinterTab } from './PrinterTab'
 import { BackupTab } from './BackupTab'
 import { SettingsNavItem, SettingsSection, SettingsRow } from '@/shared/ui/settings'
@@ -41,13 +42,14 @@ import {
   IconPalette,
   IconPhone,
   IconPrinter,
-  IconDatabase,
+    IconDatabase,
   IconShield,
+  IconSmartphone,
   IconTextSize,
 } from '@/shared/ui/settings/icons'
 
 
-type Tab = 'company' | 'theme' | 'language' | 'font' | 'tin' | 'moisture' | 'security' | 'backup' | 'printer'
+type Tab = 'company' | 'theme' | 'language' | 'font' | 'tin' | 'moisture' | 'security' | 'device-activation' | 'backup' | 'printer'
 
 interface DraftState {
   company_name: string
@@ -224,11 +226,17 @@ export function SettingsPage(): JSX.Element {
     {
       label: t({ my: 'လုံခြုံမှု', en: 'Security' }),
       items: [
-        {
+                {
           id: 'security',
           icon: <IconShield />,
           title: t({ my: 'လုံခြုံမှု', en: 'Security' }),
           subtitle: t({ my: 'ပုံစံနှင့် PIN', en: 'Pattern & PIN' }),
+},
+{
+id: 'device-activation',
+icon: <IconSmartphone />,
+title: t({ my: 'စက်အသက်သွင်းမှု', en: 'Device Activation' }),
+          subtitle: t({ my: 'အစိုးမှော်ငြင့်', en: 'Device activation' }),
         },
         {
           id: 'backup',
@@ -324,9 +332,12 @@ export function SettingsPage(): JSX.Element {
           {tab === 'moisture' && (
             <MoistureTab draft={draft} commitMoisture={commitMoisture} t={t} />
           )}
-          {tab === 'security' && (
+                    {tab === 'security' && (
             <SecurityTab t={t} />
           )}
+{tab === 'device-activation' && (
+<DeviceActivationTab />
+)}
           {tab === 'backup' && (
             <BackupTab t={t} />
           )}

@@ -42,7 +42,7 @@ step() { printf "\n${CYAN}▶ %s${NC}\n" "$1"; }
 
 check_requirements() {
   step "Checking requirements"
-  for cmd in adb curl openssl base64; do
+  for cmd in adb curl openssl base64 unzip; do
     command -v "$cmd" >/dev/null 2>&1 || fail "'$cmd' is required but not installed."
     ok "$cmd found"
   done
@@ -79,6 +79,32 @@ require_apk() {
   [ -f "$APK" ] ||
     fail "paddy.apk not found in $SCRIPT_DIR — run [4] Rebuild APK, or copy paddy.apk here."
   ok "APK ready"
+}
+
+# Reference parity (~/paddyprice install.sh `build_apk_if_needed`): the Android
+# flow NEVER installs an APK whose embedded master public key differs from THIS
+# deployment's master key. A stale key makes every /activate fail signature
+# verification ("rejected by the device") and activation silently never
+# completes. If the source project is available, embed + rebuild (exactly what
+# [4] does); standalone, fail loudly instead of installing a useless APK.
+ensure_apk_master_key() {
+  step "Verifying the APK embeds this deployment's master public key"
+  local embedded proj
+  embedded="$(unzip -p "$APK" assets/master_pub.b64 2>/dev/null || true)"
+  if [ -n "$embedded" ] && [ "$embedded" = "$(cat "$MASTER_PUB")" ]; then
+    ok "APK master public key matches this deployment"
+    return
+  fi
+  if proj="$(find_project_dir)"; then
+    warn "APK does not embed this deployment's master public key — rebuilding…"
+    rebuild_apk_menu
+    embedded="$(unzip -p "$APK" assets/master_pub.b64 2>/dev/null || true)"
+    [ "$embedded" = "$(cat "$MASTER_PUB")" ] ||
+      fail "Rebuilt APK still does not embed the master public key."
+    ok "APK rebuilt with the current master public key"
+  else
+    fail "paddy.apk does not embed this deployment's master public key. Run [4] Rebuild APK from the source project, then retry."
+  fi
 }
 
 detect_device() {
@@ -157,7 +183,13 @@ sign_and_activate() {
   at="$(date +%s)"
   tmp="$(mktemp)"
   sig_der="$(mktemp)"
-  trap 'rm -f "$tmp" "$sig_der"' RETURN
+  # Expand the temp paths at trap-SET time and make the trap self-removing.
+  # A RETURN trap persists after the function returns; a fire-time expansion
+  # ("$tmp") then runs in a caller scope where tmp is unset and, under
+  # `set -u`, crashes the menu ("tmp: unbound variable"). Baking the paths in
+  # plus `trap - RETURN` scopes the cleanup to this function only — it cannot
+  # leak into the caller or any later function.
+  trap "rm -f '$tmp' '$sig_der'; trap - RETURN" RETURN
   printf '1|%s|%s|%s' "$CH_FP" "$CH_NONCE" "$at" >"$tmp"
   openssl dgst -sha256 -sign "$MASTER_KEY" -passin env:KEYPASS -binary -out "$sig_der" "$tmp"
   sig_b64="$(base64 -w0 "$sig_der")"
@@ -287,6 +319,7 @@ main() {
   load_keypass
   ensure_master_key
   require_apk
+  ensure_apk_master_key
 
   while true; do
     print_menu

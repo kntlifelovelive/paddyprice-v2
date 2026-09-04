@@ -13,10 +13,13 @@ interface Harness {
   service: ReturnType<typeof createDeviceAuthService>
   onActivated: ReturnType<typeof vi.fn>
   onDeactivated: ReturnType<typeof vi.fn>
+  removeCallLog: string[]
 }
 
 function createHarness(initialStatus: DeviceStatus): Harness {
   const listeners: Record<string, () => void> = {}
+  // Track remove() calls on listener handles
+  const removeCallLog: string[] = []
   const adapter = {
     status: initialStatus,
     listeners,
@@ -27,7 +30,14 @@ function createHarness(initialStatus: DeviceStatus): Harness {
     deactivate: vi.fn(() => Promise.resolve()),
     addListener: vi.fn((_event: string, cb: () => void): Promise<ListenerHandle> => {
       adapter.listeners[_event] = cb
-      return Promise.resolve({ remove: () => Promise.resolve() })
+      // Return a mock handle whose remove() we can track
+      return Promise.resolve({
+        remove: async () => {
+          removeCallLog.push(_event)
+          // Actually remove the listener so it won't fire again
+          delete adapter.listeners[_event]
+        }
+      })
     }),
   }
   const store = new Map<string, string>()
@@ -40,7 +50,7 @@ function createHarness(initialStatus: DeviceStatus): Harness {
     onActivated,
     onDeactivated,
   })
-  return { adapter: adapter as Harness['adapter'], store, service, onActivated, onDeactivated }
+  return { adapter: adapter as Harness['adapter'], store, service, onActivated, onDeactivated, removeCallLog }
 }
 
 describe('device authorization service (mock adapter)', () => {
@@ -142,5 +152,47 @@ describe('device authorization service (mock adapter)', () => {
     const h = createHarness({ supported: true, hasKey: true, savedFp: null })
     await h.service.stopActivationServer()
     expect(h.adapter.stopActivationServer).toHaveBeenCalledTimes(1)
+  })
+
+  it('deviceActivated WITHOUT a persisted fingerprint fails closed — never authorized', async () => {
+    const h = createHarness({ supported: true, hasKey: true, savedFp: null })
+    await h.service.beginActivation()
+    // The event fired but the native status reports NO persisted fingerprint
+    // (e.g. a spurious event): nothing may be persisted and the consumer must
+    // NOT be told the device is authorized.
+    h.adapter.listeners['deviceActivated']()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(h.onActivated).not.toHaveBeenCalled()
+    expect(h.store.size).toBe(0)
+    // The real check still reports unauthorized — gate stays up.
+    const result = await h.service.check()
+    expect(result.state).toBe('unauthorized')
+  })
+
+  it('deviceActivated whose status verification throws fails closed', async () => {
+    const h = createHarness({ supported: true, hasKey: true, savedFp: null })
+    await h.service.beginActivation()
+    h.adapter.getStatus = vi.fn(() => Promise.reject(new Error('bridge failure')))
+    h.adapter.listeners['deviceActivated']()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(h.onActivated).not.toHaveBeenCalled()
+    expect(h.store.size).toBe(0)
+  })
+
+  it('cancelActivation removes deviceActivated listener so pending events cannot fire onActivated', async () => {
+    const h = createHarness({ supported: true, hasKey: true, savedFp: 'fp-device' })
+    // beginActivation registers the deviceActivated listener
+    await h.service.beginActivation()
+    expect(h.adapter.listeners['deviceActivated']).toBeDefined()
+    // Now call cancelActivation - it should remove the listeners
+    await h.service.cancelActivation()
+    // The remove() call should have been recorded
+    expect(h.removeCallLog).toContain('deviceActivated')
+    // Both listeners are removed so no pending in-flight event can fire
+    expect(h.adapter.listeners['deviceActivated']).toBeUndefined()
+    // stopActivationServer delegates to the adapter
+    expect(h.adapter.stopActivationServer).toHaveBeenCalled()
+    // onActivated must NEVER be called after cancel (fail closed)
+    expect(h.onActivated).not.toHaveBeenCalled()
   })
 })

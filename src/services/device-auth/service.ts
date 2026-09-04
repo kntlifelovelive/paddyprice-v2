@@ -13,13 +13,23 @@
  * internals are PC-side only. The documented flow above is the contract.
  */
 import type { Database } from 'sql.js'
-import type { DeviceAuthAdapter, DeviceAuthState } from '@/types'
+import type { DeviceAuthAdapter, DeviceAuthState, ListenerHandle } from '@/types'
 import { getSetting, setSetting } from '@/infrastructure/db/dao/settings'
 import { DEVICE_AUTH_CHECK_FAILED } from '@/services/security/messages'
 
 /** Persisted authorization settings keys (§6.4). */
 export const DEVICE_KEY_FP = 'device.fp'
 export const DEVICE_KEY_CERT = 'device.cert'
+
+/**
+ * Safe diagnostic logging (lifecycle/state transitions ONLY). NEVER logs key
+ * material, keypass, master key, certificates, nonces, signatures, or full
+ * fingerprints — state names and counts are the only permitted content.
+ * Surface: `console` → Capacitor captures into logcat as `Capacitor/Console`.
+ */
+export function log(message: string): void {
+  console.info(`[DeviceAuth] ${message}`)
+}
 
 export interface DeviceAuthCheckResult {
   state: DeviceAuthState
@@ -36,6 +46,17 @@ export interface DeviceAuthService {
   /** Deactivate locally: clear the plugin key state and persisted settings. */
   deactivate(): Promise<void>
   stopActivationServer(): Promise<void>
+  /**
+   * Cancel the CURRENT activation attempt.
+   *
+   * SECURITY: cancelling is NOT authorization. This stops the loopback server
+   * AND removes the `deviceActivated`/`deviceDeactivated` listeners so a
+   * packet that was already in flight when the user pressed Cancel can never
+   * fire `onActivated` afterwards and unlock the application. The device
+   * remains unauthorized; there is no code path here that can produce
+   * `state: 'authorized'`.
+   */
+  cancelActivation(): Promise<void>
 }
 
 export interface DeviceAuthServiceOptions {
@@ -51,6 +72,8 @@ export interface DeviceAuthServiceOptions {
 
 export function createDeviceAuthService(options: DeviceAuthServiceOptions): DeviceAuthService {
   const { adapter, getSetting: get, setSetting: set, onActivated, onDeactivated } = options
+  let deviceActivatedListenerHandle: ListenerHandle | null = null
+  let deviceDeactivatedListenerHandle: ListenerHandle | null = null
 
   return {
     async check(): Promise<DeviceAuthCheckResult> {
@@ -81,18 +104,33 @@ export function createDeviceAuthService(options: DeviceAuthServiceOptions): Devi
     async beginActivation(): Promise<void> {
       await adapter.startActivationServer()
       // Fired by the native plugin after a master-signed certificate is
-      // verified through the loopback activation server.
-      await adapter.addListener('deviceActivated', () => {
+      // verified through the loopback activation server. SECURITY (fail
+      // closed): the store may only transition to `authorized` when the
+      // native state positively reports a persisted fingerprint. An event
+      // WITHOUT one is ignored (no persistence, no unlock) — it can never
+      // be treated as authorization.
+      const deviceActivatedCb = () => {
         void (async () => {
-          const { savedFp } = await adapter.getStatus()
-          if (savedFp) {
+          try {
+            const { savedFp } = await adapter.getStatus()
+            if (!savedFp) {
+              // Fail closed: an activation event without a persisted
+              // fingerprint must not unlock anything.
+              log('deviceActivated without a persisted fingerprint — ignored (fail closed)')
+              return
+            }
             set(DEVICE_KEY_FP, savedFp)
             set(DEVICE_KEY_CERT, JSON.stringify({ fp: savedFp, at: Date.now() }))
+            onActivated?.(savedFp)
+          } catch {
+            // Fail closed: if the post-event status cannot be verified, the
+            // device stays unauthorized. Never unlock on uncertainty.
+            log('deviceActivated status verification failed — ignored (fail closed)')
           }
-          onActivated?.(savedFp)
         })()
-      })
-      await adapter.addListener('deviceDeactivated', () => {
+      }
+
+      const deviceDeactivatedCb = () => {
         try {
           set(DEVICE_KEY_FP, '')
           set(DEVICE_KEY_CERT, '')
@@ -100,7 +138,12 @@ export function createDeviceAuthService(options: DeviceAuthServiceOptions): Devi
           // database may be unavailable mid-teardown — ignore
         }
         onDeactivated?.()
-      })
+      }
+
+      const actHandle = await adapter.addListener('deviceActivated', deviceActivatedCb)
+      const deactHandle = await adapter.addListener('deviceDeactivated', deviceDeactivatedCb)
+      deviceActivatedListenerHandle = actHandle
+      deviceDeactivatedListenerHandle = deactHandle
     },
 
     async deactivate(): Promise<void> {
@@ -116,6 +159,34 @@ export function createDeviceAuthService(options: DeviceAuthServiceOptions): Devi
 
     async stopActivationServer(): Promise<void> {
       await adapter.stopActivationServer()
+    },
+
+    async cancelActivation(): Promise<void> {
+      // Stop the activation server best-effort
+      try {
+        await adapter.stopActivationServer()
+      } catch {
+        // server may already be gone
+      }
+      // REMOVE listeners so any pending deviceActivated event that was
+      // already in flight when the user pressed Cancel can NEVER fire
+      // onActivated afterwards and unlock the application.
+      if (deviceActivatedListenerHandle) {
+        try {
+          await deviceActivatedListenerHandle.remove()
+        } catch {
+          // best-effort
+        }
+        deviceActivatedListenerHandle = null
+      }
+      if (deviceDeactivatedListenerHandle) {
+        try {
+          await deviceDeactivatedListenerHandle.remove()
+        } catch {
+          // best-effort
+        }
+        deviceDeactivatedListenerHandle = null
+      }
     },
   }
 }
