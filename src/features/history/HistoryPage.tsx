@@ -54,7 +54,7 @@ import {
   type CredentialAvailability,
 } from '@/services/security/credential-verify'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
-import { generateVoucherPng } from '@/services/png/service'
+import { generateVoucherPng, generateBagWeightDetailsPng } from '@/services/png/service'
 import { printerService } from '@/services/print/printerService'
 import type { PrintReceipt } from '@/types/print'
 
@@ -146,6 +146,7 @@ export function HistoryPage() {
    * History drilldown (`/history/:farmerId`), as in the reference project. */
   const [farmerSelect, setFarmerSelect] = useState('')
   const [bagPdfBusy, setBagPdfBusy] = useState(false)
+  const [bagPngBusy, setBagPngBusy] = useState(false)
   // Reference UI concept: deletes are confirmed with a modal ConfirmDialog.
   const [deleteTarget, setDeleteTarget] = useState<PurchaseRecord | null>(null)
   // Delete-protection for customer-owned history records (same concept as the
@@ -234,8 +235,34 @@ export function HistoryPage() {
     }
   }
 
+  async function handleBagWeightsPng(): Promise<void> {
+    if (farmerSelect === '') {
+      setFlash({ kind: 'err', text: t({ my: 'ကျေးဇူးပြု၍ ဝယ်ယူသည့်သူ ရွေးပါ', en: 'Please select a customer first.' }) })
+      return
+    }
+    const selectedFarmer = data?.data?.farmers.find((f) => String(f.id) === farmerSelect)
+    setBagPngBusy(true)
+    try {
+      const result = await generateBagWeightDetailsPng(
+        Number(farmerSelect),
+        selectedFarmer?.name ?? '',
+      )
+      setFlash({
+        kind: 'ok',
+        text: t({
+          my: `PNG ထုတ်ပြီးပါပြီ (${result.pageCount} မျက်နှာ)`,
+          en: `PNG exported (${result.pageCount} page${result.pageCount > 1 ? 's' : ''})`,
+        }),
+      })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PNG failed' })
+    } finally {
+      setBagPngBusy(false)
+    }
+  }
+
   async function handlePdf(purchaseId: number): Promise<void> {
-    setBusyId(purchaseId)
+  setBusyId(purchaseId)
     try {
       await generateVoucherPdf(purchaseId)
       setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
@@ -397,6 +424,21 @@ export function HistoryPage() {
           >
             {bagPdfBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
             {t({ my: 'အိတ် အလေးချိန် PDF', en: 'Bag Weights PDF' })}
+          </button>
+          {/* Bag Weights PNG — reuses the same template/data as the PDF */}
+          <button
+            type="button"
+            disabled={farmerSelect === '' || bagPngBusy}
+            title={
+              farmerSelect === ''
+                ? t({ my: 'ဝယ်ယူသည့်သူ ရွေးပါ', en: 'Select a customer first' })
+                : t({ my: 'အိတ် အလေးချိန် PNG', en: 'Bag Weights PNG' })
+            }
+            onClick={() => void handleBagWeightsPng()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+          >
+            {bagPngBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <GalleryIcon size="h-4 w-4" />}
+            {t({ my: 'အိတ် အလေးချိန် PNG', en: 'Bag Weights PNG' })}
           </button>
           {/* New Purchase (reference toolbar link, plus icon) */}
           <Link

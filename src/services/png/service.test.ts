@@ -14,7 +14,7 @@ import { settingsService } from '@/services/settings'
 import { createPurchase as createPurchaseSession } from '@/services/purchase/service'
 import type { SavedFile } from '@/types/storage'
 import type { GalleryPort } from '@/infrastructure/platform/gallery'
-import { exportHomeSummaryPng, generateVoucherPng } from './service'
+import { exportHomeSummaryPng, generateVoucherPng, generateBagWeightDetailsPng } from './service'
 
 // html2canvas/jsdom incompat: stub the browser-only PNG renderer so the test
 // asserts the service orchestration (filename, page naming, gallery routing).
@@ -101,6 +101,26 @@ async function seedPurchase(date = '2026-09-01'): Promise<{ id: number; purchase
   return { id: snapshot.id, purchase_no: snapshot.purchase_no }
 }
 
+/** Seed a purchase for the bag-weight PNG test — returns the farmer object too. */
+async function seedBagWeightPurchase(date = '2026-09-01'): Promise<{ farmer: { id: number; name: string } }> {
+  const db = await createTestDatabase()
+  settingsService.load(db)
+  const farmer = createFarmer(db, {
+    name: 'Ko Aung',
+    address: '123 Paddy St, Yangon',
+    phone: '09-555111',
+  })
+  const type = createRiceType(db, { name: 'Emata' })
+  createRicePrice(db, { date, rice_type_id: type.id, price_100_tin: 1_850_000, price_per_tin: 18_500 })
+  createPurchaseSession(db, {
+    farmer_id: farmer.id,
+    date,
+    rice_type_id: type.id,
+    moisture_label: null,
+  })
+  return { farmer: { id: farmer.id, name: farmer.name } }
+}
+
 describe('generateVoucherPng', () => {
   afterAll(() => closeTestDatabase())
 
@@ -118,5 +138,20 @@ describe('generateVoucherPng', () => {
     await createTestDatabase()
     const { gallery } = captureGallery()
     await expect(generateVoucherPng(999_999, gallery)).rejects.toThrow('Purchase not found')
+  })
+})
+
+describe('generateBagWeightDetailsPng', () => {
+  afterAll(() => closeTestDatabase())
+
+  it('saves PNGs with PSO + Customer Name filename tag', async () => {
+    const { farmer } = await seedBagWeightPurchase()
+    const { gallery, saved } = captureGallery()
+    const result = await generateBagWeightDetailsPng(farmer.id, farmer.name, gallery)
+    expect(result.pageCount).toBe(2)          // stub returns 2 pages
+    expect(saved).toHaveLength(2)
+    const expectedBase = 'PSO1_Ko-Aung'       // PSO + farmer ID + sanitized name
+    expect(saved[0].name).toBe(`${expectedBase}_page1.png`)
+    expect(saved[1].name).toBe(`${expectedBase}_page2.png`)
   })
 })

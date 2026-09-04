@@ -12,8 +12,8 @@
  * already-built template node that the PDF path consumes.
  */
 import { htmlToPng } from '@/services/pdf/render'
-import { buildHomeSummaryNode, buildVoucherNode } from '@/services/pdf/templates'
-import { buildVoucherInput } from '@/services/pdf/service'
+import { buildHomeSummaryNode, buildVoucherNode, buildBagWeightNode } from '@/services/pdf/templates'
+import { buildVoucherInput, buildBagWeightInput } from '@/services/pdf/service'
 import type { HomeSummaryPdfInput } from '@/types/pdf'
 import { createGallery, type GalleryPort } from '@/infrastructure/platform/gallery'
 import type { SavedFile } from '@/types/storage'
@@ -65,6 +65,50 @@ export async function exportHomeSummaryPng(
   }
   return { files, pageCount: pages.length }
 }
+
+/**
+ * Sanitize a string for use as an Android Gallery filename component.
+ * Replaces path separators, colons, and other filesystem-unsafe characters
+ * with dashes; collapses runs of whitespace into dashes.
+ */
+function sanitizeFileName(s: string): string {
+  return s
+    .replace(/[<>:"/\\|?*]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+/**
+ * Render a customer's bag-weight voucher to PNG (using the SAME node the PDF
+ * bag-weight export renders) and save each page to the device gallery.
+ * The PNG is visually equivalent to the PDF because both share `buildBagWeightInput`
+ * + `buildBagWeightNode`.
+ *
+ * Filename: `PSO{farmerId}_{sanitizedFarmerName}.png`
+ */
+export async function generateBagWeightDetailsPng(
+  farmerId: number,
+  farmerName: string,
+  gallery: GalleryPort = createGallery(),
+): Promise<PngExportResult> {
+  const input = await buildBagWeightInput(farmerId, null, '', '', 0)
+  const node = buildBagWeightNode(input)
+  const pages = await htmlToPng(node)
+
+  const baseName = sanitizeFileName(`PSO${farmerId}_${farmerName}`)
+  const files: SavedFile[] = []
+  const totalPages = pages.length || 1
+  for (let i = 0; i < pages.length; i += 1) {
+    const fileName = totalPages > 1
+      ? `${baseName}_page${i + 1}.png`
+      : `${baseName}.png`
+    const saved = await gallery.savePng(fileName, pages[i])
+    files.push(saved)
+  }
+  return { files, pageCount: pages.length }
+}
+
 /**
  * Render a customer's purchase voucher to PNG (using the SAME node the PDF
  * voucher renders) and save each page to the device gallery. The PNG is

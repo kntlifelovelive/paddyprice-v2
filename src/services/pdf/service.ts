@@ -210,16 +210,17 @@ export async function generateVoucherPdf(
 }
 
 /**
- * Bag Weight Details report generation.
+ * Build the BagWeightReportInput for one page of the bag-weight voucher.\n
+ * Extracted so that both the PDF and PNG export paths share the SAME data + template\n * (P5: the PNG export reuses the PDF format pixel-for-pixel). Zero business\n * calculation duplication — moisture-adjusted weights come from the domain\n * helper, same as everywhere else.\n
+ * The empty-page path is unified into the populated path via defaults; the\n * resulting `BagWeightReportInput` is identical to what the previous inline\n * empty-page branch produced.
  */
-export async function generateBagWeightDetailsPdf(
+export async function buildBagWeightInput(
   farmerId: number,
   riceTypeId: number | null,
   fromDate: string,
   toDate: string,
   page: number,
-  storage?: StoragePort,
-): Promise<PdfArtifact> {
+): Promise<BagWeightReportInput> {
   const db = getDatabase();
   const farmer = farmersDao.getFarmer(db, farmerId);
   if (!farmer) throw new Error('Farmer not found');
@@ -257,31 +258,6 @@ export async function generateBagWeightDetailsPdf(
     return rt ? rt.name : '';
   }
 
-  if (pageRecords.length === 0) {
-    const input: BagWeightReportInput = {
-      company: {
-        name: getCompanyName(db),
-        address: getCompanyAddress(db),
-        phone: getCompanyPhone(db),
-        footer_text: getCompanyFooterText(db),
-      },
-      farmer_name: farmer.name,
-      farmer_address: farmer.address,
-      farmer_phone: farmer.phone,
-      groups: [],
-      generated_at: todayISO(),
-      total_bags: 0,
-      total_pound: 0,
-      page: page + 1,
-      total_pages: Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
-    };
-    const html = buildBagWeightNode(input);
-    const pdfBytes = await htmlToPdf(html);
-    const relativePath = `bagweights/farmer${farmerId}_page${page + 1}.pdf`;
-    return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
-  }
-
-  // Group by consecutive paddy type; bag sequence restarts at 1 for each group
   const groups: BagWeightPaddyTypeGroup[] = [];
 
   let currentRiceTypeId: number | null = null;
@@ -317,7 +293,7 @@ export async function generateBagWeightDetailsPdf(
   const totalBags = pageRecords.reduce((sum, r) => sum + r.snapshot.total_bags, 0);
   const totalPound = pageRecords.reduce((sum, r) => sum + r.snapshot.total_pounds, 0);
 
-  const input: BagWeightReportInput = {
+  return {
     company: {
       name: getCompanyName(db),
       address: getCompanyAddress(db),
@@ -333,11 +309,27 @@ export async function generateBagWeightDetailsPdf(
     total_pound: totalPound,
     page: page + 1,
     total_pages: Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
-  };
+  }
+}
 
+/**
+ * Bag Weight Details report (PDF).
+ *
+ * Delegates input-building to `buildBagWeightInput` and shares the template
+ * node with the PNG export path (P5), guaranteeing visual parity.
+ */
+export async function generateBagWeightDetailsPdf(
+  farmerId: number,
+  riceTypeId: number | null,
+  fromDate: string,
+  toDate: string,
+  page: number,
+  storage?: StoragePort,
+): Promise<PdfArtifact> {
+  const input = await buildBagWeightInput(farmerId, riceTypeId, fromDate, toDate, page);
   const html = buildBagWeightNode(input);
   const pdfBytes = await htmlToPdf(html);
-  const relativePath = `bagweights/farmer${farmerId}_page${page + 1}.pdf`;
+  const relativePath = `bagweights/farmer${farmerId}_page${input.page ?? 1}.pdf`;
   return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
