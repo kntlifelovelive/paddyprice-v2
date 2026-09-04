@@ -26,6 +26,7 @@ import {
 } from '@/services/reports'
 import { settingsService } from '@/services/settings'
 import { generateHomeSummaryPdf } from '@/services/pdf/service'
+import { exportHomeSummaryPng } from '@/services/png/service'
 import { printerService } from '@/services/print/printerService'
 import {
   formatDateDMY,
@@ -36,7 +37,7 @@ import {
   todayISO,
 } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { PdfIcon, PrintIcon, Text } from '@/shared/ui'
+import { GalleryIcon, PdfIcon, PrintIcon, Text } from '@/shared/ui'
 import type { PrintReceipt } from '@/types/print'
 import type { RiceType } from '@/types'
 
@@ -381,6 +382,57 @@ export function DashboardPage(): JSX.Element {
     }
   }
 
+  /** Export PNG — same PDF-format report, rendered to a gallery image. */
+  const handlePngClick = async (): Promise<void> => {
+    if (!state.view) return
+    setBusy(true)
+    try {
+      const view = state.view
+      const { title, periodLabel, fileTag } = reportMeta()
+      const typeName =
+        riceTypeId != null ? riceTypes.find((rt) => rt.id === riceTypeId)?.name : undefined
+      const result = await exportHomeSummaryPng({
+        title,
+        period_label: typeName ? `${periodLabel} · ${typeName}` : periodLabel,
+        file_tag: typeName ? `${fileTag}_type${riceTypeId!}` : fileTag,
+        // Same stored-snapshot group rows + Tin/Extra Lb as the PDF export.
+        rows: view.groups.map((r) => {
+          const { tins, extraLb } = decomposeNetPound(r.net_pound, state.lbPerTin)
+          return {
+            rice_type_name: r.rice_type_name,
+            total_bags: r.total_bags,
+            total_pound: r.net_pound,
+            total_tin: tins,
+            total_extra_lb: extraLb,
+            price_100_tin: r.price_100_tin,
+            total_amount: r.total_amount,
+          }
+        }),
+        totals: (() => {
+          const { tins, extraLb } = decomposeNetPound(view.summary.total_net_pound, state.lbPerTin)
+          return {
+            bags: view.summary.total_bags,
+            pound: view.summary.total_net_pound,
+            tin: tins,
+            extra_lb: extraLb,
+            amount: view.summary.total_amount,
+          }
+        })(),
+      })
+      setFlash({
+        kind: 'ok',
+        text: t({
+          my: `PNG ထုတ်ပြီးပါပြီ (${result.pageCount} မျက်နှာ)`,
+          en: `PNG exported (${result.pageCount} page${result.pageCount > 1 ? 's' : ''})`,
+        }),
+      })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PNG export failed' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /** 80mm thermal print — reference Home summary receipt, forced to 80mm. */
   const handlePrintClick = async (): Promise<void> => {
     if (!state.view) return
@@ -512,8 +564,8 @@ export function DashboardPage(): JSX.Element {
         </select>
       </div>
 
-      {/* Export / print — reference Home toolbar (filter-aware; disabled when no data). */}
-      <div className="flex flex-wrap gap-2 sm:grid sm:max-w-md sm:grid-cols-2">
+      {/* Export / print / PNG — reference Home toolbar (filter-aware; disabled when no data). */}
+      <div className="flex flex-wrap gap-2">
         <button
           type="button"
           className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
@@ -523,6 +575,17 @@ export function DashboardPage(): JSX.Element {
           <span className="inline-flex items-center gap-1.5">
             <PdfIcon className="h-4 w-4" />
             <span>{t({ my: 'PDF ထုတ်', en: 'Export PDF' })}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+          disabled={busy || view.groups.length === 0}
+          onClick={() => void handlePngClick()}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <GalleryIcon className="h-4 w-4" />
+            <span>{t({ 'my': 'PNG ထုတ်', en: 'Export PNG' })}</span>
           </span>
         </button>
         <button

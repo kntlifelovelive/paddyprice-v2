@@ -59,6 +59,17 @@ describe('PDF px↔mm conversion (canvasPxToMm)', () => {
 
   it('preserves physical size regardless of canvas height (text-scale bug guard)', () => {
     // The OLD bug derived mm from canvas.height vs A4_HEIGHT_MM, which
+describe('htmlToPng (PNG export — same canvas pipeline as PDF)', () => {
+  it('returns an array (empty under jsdom — no canvas engine)', async () => {
+    const { htmlToPng } = await import('./render')
+    const node = document.createElement('div')
+    node.style.width = '210mm'
+    const pages = await htmlToPng(node)
+    expect(Array.isArray(pages)).toBe(true)
+    // jsdom has no canvas engine → rasterizeNodeToCanvas returns null → no pages.
+    expect(pages).toEqual([])
+  })
+})
     // stretched/squashed content whose height ≠ one page. The conversion
     // must depend on WIDTH only.
     const canvasWidthPx = 1112

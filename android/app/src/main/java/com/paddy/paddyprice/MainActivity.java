@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
   public void onCreate(android.os.Bundle savedInstanceState) {
     // IMPORTANT: plugins MUST be registered BEFORE super.onCreate().
     registerPlugin(DeviceAuthPlugin.class);
+    registerPlugin(GallerySavePlugin.class);
     super.onCreate(savedInstanceState);
   }
 }

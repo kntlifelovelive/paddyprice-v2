@@ -82,29 +82,23 @@ export function planA4Pages(contentHeightMm: number): number {
   return Math.ceil(contentHeightMm / A4_HEIGHT_MM)
 }
 
-export interface RenderOptions {
-  /** A unique class prefix applied to the root element (test isolation). */
-  rootClass?: string
-  /** When true, return the rendered HTML element instead of PDF bytes. */
-  keepMounted?: boolean
-}
-
 /**
- * Render an HTML node to PDF bytes using the documented pipeline.
- * The node is rasterized at 1.4x (reference parity; see below) and sliced
- * into content-driven A4 pages.
+ * Shared rasterization core: mount an HTML node into the DOM and rasterize it
+ * to a canvas with html2canvas, using the exact same settings the PDF path
+ * uses. Both PDF and PNG export call this so their outputs stay pixel-identical.
+ *
+ * Browser-only: returns null under jsdom (no real canvas engine).
  */
-export async function htmlToPdf(
+async function rasterizeNodeToCanvas(
   node: HTMLElement,
-  options: RenderOptions = {},
-): Promise<Uint8Array> {
+  rootClass: string,
+): Promise<HTMLCanvasElement | null> {
   if (typeof document === 'undefined' || typeof window === 'undefined') {
     // jsdom test environment: caller should mount the node themselves and
-    // assert against the rendered HTML. Return an empty PDF.
-    return new Uint8Array()
+    // assert against the rendered HTML. Return null (no canvas).
+    return null
   }
 
-  const rootClass = options.rootClass ?? 'paddy-pdf-root'
   node.classList.add(rootClass)
   // Minimal styles for the rasterization pass. Tailwind classes are NOT
   // applied because rasterized HTML is taken straight from the DOM tree.
@@ -121,7 +115,7 @@ export async function htmlToPdf(
     // not need to load it. The dynamic import is also cached after the first
     // call.
     const html2canvas = (await import('html2canvas')).default
-    const canvas = await html2canvas(node, {
+    return await html2canvas(node, {
       // 1.4x like the reference (~/paddyprice/src/services/pdf.ts
       // renderPageCanvas): a 2x scale on large multi-page reports inflated
       // the Capacitor bridge payload and crashed Android with
@@ -131,10 +125,62 @@ export async function htmlToPdf(
       logging: false,
       useCORS: true,
     })
-    return composePdfFromCanvas(canvas)
   } finally {
-    if (!options.keepMounted) node.remove()
+    node.remove()
   }
+}
+
+export interface RenderOptions {
+  /** A unique class prefix applied to the root element (test isolation). */
+  rootClass?: string
+  /** When true, return the rendered HTML element instead of PDF bytes. */
+  keepMounted?: boolean
+}
+
+/** Render an HTML node to PDF bytes using the documented pipeline. */
+export async function htmlToPdf(
+  node: HTMLElement,
+  options: RenderOptions = {},
+): Promise<Uint8Array> {
+  const rootClass = options.rootClass ?? 'paddy-pdf-root'
+  // keepMounted: leave the node in the DOM (tests) and skip rasterization.
+  if (options.keepMounted) {
+    node.classList.add(rootClass)
+    document.body.appendChild(node)
+    return new Uint8Array()
+  }
+  const canvas = await rasterizeNodeToCanvas(node, rootClass)
+  if (!canvas) {
+    // jsdom test environment — nothing to rasterize.
+    return new Uint8Array()
+  }
+  return composePdfFromCanvas(canvas)
+}
+
+/**
+ * Render an HTML node to one PNG page (A4-sliced) using the SAME canvas the
+ * PDF path produces, then encode each slice as PNG bytes. Because both paths
+ * share `rasterizeNodeToCanvas`, the PNG is pixel-identical to the PDF.
+ *
+ * Browser-only: returns [] under jsdom.
+ */
+export async function htmlToPng(
+  node: HTMLElement,
+  options: RenderOptions = {},
+): Promise<Uint8Array[]> {
+  const canvas = await rasterizeNodeToCanvas(node, options.rootClass ?? 'paddy-png-root')
+  if (!canvas) {
+    // jsdom test environment — nothing to rasterize.
+    return []
+  }
+  const slices = sliceCanvasForA4(canvas)
+  const pages: Uint8Array[] = []
+  for (const slice of slices) {
+    const base64 = slice.dataUrl.split(',')[1] ?? ''
+    if (!base64) continue
+    pages.push(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)))
+  }
+  return pages
 }
 
 /**
