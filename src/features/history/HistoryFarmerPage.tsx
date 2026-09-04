@@ -16,8 +16,9 @@ import { settingsService } from '@/services/settings'
 import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { BackIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
+import { BackIcon, GalleryIcon, PdfIcon, PrintIcon, SpinnerIcon, Text } from '@/shared/ui'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
+import { generateBagWeightDetailsPng } from '@/services/png/service'
 import { printerService } from '@/services/print/printerService'
 import type { PrintReceipt } from '@/types/print'
 import type { PurchaseRecord } from '@/types'
@@ -96,6 +97,7 @@ export function HistoryFarmerPage(): JSX.Element {
   // Reference-concept toolbar action: Bag Weights PDF for this customer
   // (backed by P2's existing bag-weights PDF service).
   const [bagPdfBusy, setBagPdfBusy] = useState(false)
+  const [bagPngBusy, setBagPngBusy] = useState(false)
 
   useEffect(() => {
     if (Number.isNaN(farmerId)) { setError('Invalid farmer id'); return }
@@ -164,6 +166,24 @@ export function HistoryFarmerPage(): JSX.Element {
     } finally { setBagPdfBusy(false) }
   }
 
+  /** Reference-concept toolbar action — bag-weights PNG for this customer. */
+  async function handleBagWeightsPng(): Promise<void> {
+    if (!data) return
+    setBagPngBusy(true)
+    try {
+      const result = await generateBagWeightDetailsPng(farmerId, data.farmerName)
+      setFlash({
+        kind: 'ok',
+        text: t({
+          my: `PNG ထုတ်ပြီးပါပြီ (${result.pageCount} မျက်နှာ)`,
+          en: `PNG exported (${result.pageCount} page${result.pageCount > 1 ? 's' : ''})`,
+        }),
+      })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PNG failed' })
+    } finally { setBagPngBusy(false) }
+  }
+
   if (error) {
     return (
       <div className="space-y-4 p-3 sm:p-4" data-page="history-farmer">
@@ -198,6 +218,15 @@ export function HistoryFarmerPage(): JSX.Element {
           >
             {bagPdfBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
             {t({ my: 'အိတ် အလေးချိန် PDF', en: 'Bag Weights PDF' })}
+          </button>
+          <button
+            type="button"
+            disabled={bagPngBusy}
+            onClick={() => void handleBagWeightsPng()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs hover:bg-surface-hover disabled:opacity-50"
+          >
+            {bagPngBusy ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <GalleryIcon size="h-4 w-4" />}
+            {t({ my: 'အိတ် အလေးချိန် PNG', en: 'Bag Weights PNG' })}
           </button>
           <button type="button" onClick={() => navigate('/history')}
             className="flex items-center gap-1 rounded border border-border bg-surface px-3 py-1 text-xs hover:bg-surface-hover">
