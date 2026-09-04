@@ -1,42 +1,63 @@
 /**
- * BackupTab — the "Backup & Restore" section inside Settings (reference
- * SettingsPage 'backup' section, rebuilt with the existing P2 primitives:
- * SettingsSection / SettingsRow / SVG icon system / ConfirmDialog).
+ * BackupTab — the "Backup & Restore" section inside Settings.
  *
- * Backup: the complete SQLite user-data image, serialized + authenticated-
- * encrypted (AES-256-GCM, PBKDF2-SHA256 key from the user's backup password)
- * by `services/backup` — never plain readable JSON.
+ * UI (task spec): ONE simple card — Backup (password + save) and Restore
+ * (select file → password → restore), status/error at the bottom. No
+ * background images, no glass/transparency, no native file-input look: the
+ * picker is a styled button that shows the chosen file name.
  *
- * Restore: pick file → password → authenticate/decrypt → validate → confirm
- * → swap via the existing persistence architecture → full bootstrap re-run so
- * every store re-reads the restored data. Any failure (unknown format/version,
- * wrong password, corruption) is rejected BEFORE the swap and leaves the
- * existing data untouched.
+ * Backup: the complete SQLite user-data image, AES-256-GCM encrypted with the
+ * user's backup password (`services/backup`) — never plain readable JSON.
+ *
+ * Restore (reference `~/paddyprice` behavior): pick file → password →
+ * authenticate/decrypt + validate → confirm → swap via the existing
+ * persistence architecture → FULL RELOAD, exactly like the reference
+ * (`✓ Restored — reloading…` → `window.location.reload()`). The reload
+ * re-runs bootstrap from the persisted (restored) image, so restored data is
+ * visible immediately and survives refresh/restart. Any failure (unknown
+ * format/version, wrong password, corruption) is rejected BEFORE the swap and
+ * leaves the existing data untouched.
  *
  * Passwords exist only transiently in form state — never logged, never stored.
  */
-import { useState } from 'react'
-import { useT } from '@/shared/hooks'
+import { useRef, useState } from 'react'
+import type { useT } from '@/shared/hooks'
 import { Text, ConfirmDialog } from '@/shared/ui'
-import { SettingsSection, SettingsRow } from '@/shared/ui/settings'
+import { SettingsSection } from '@/shared/ui/settings'
 import { IconDatabase, IconRestore } from '@/shared/ui/settings/icons'
 import { getDatabase } from '@/infrastructure/db'
 import { createBackupFile, restoreBackupFromBytes, BACKUP_EXTENSION } from '@/services/backup/service'
 import { BackupCryptoError, decryptBackup } from '@/services/backup/crypto'
 
+/** Reference pause between "Restored" and the reload (lets the user see it). */
+const RELOAD_DELAY_MS = 800
+
+/**
+ * Full page reload after a successful restore (reference behavior). Indirected
+ * through an object so tests can spy on it — jsdom's window.location.reload
+ * is neither spiable nor redefinable.
+ */
+export const reloadApp = {
+  run(): void {
+    window.location.reload()
+  },
+}
+
+const inputClass =
+  'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent'
+const primaryButtonClass =
+  'w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-text transition-colors hover:bg-accent-hover disabled:opacity-50'
+
 export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
   const [backupPassword, setBackupPassword] = useState('')
   const [restorePassword, setRestorePassword] = useState('')
-  const [pendingBytes, setPendingBytes] = useState<Uint8Array | null>(null)
+  const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmRestore, setConfirmRestore] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const flash = (message: string): void => {
-    setStatus(message)
-    setError(null)
-  }
   const fail = (message: string): void => {
     setError(message)
     setStatus(null)
@@ -48,10 +69,12 @@ export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
       return
     }
     setBusy(true)
+    setError(null)
+    setStatus(null)
     try {
       await createBackupFile(getDatabase(), backupPassword)
       setBackupPassword('')
-      flash(t({ my: '✓ Backup သိမ်းပြီး', en: '✓ Backup saved' }))
+      setStatus(t({ my: '✓ Backup သိမ်းပြီး', en: '✓ Backup saved' }))
     } catch (err) {
       // Best-effort console hint WITHOUT the password or any plaintext data.
       console.error('[backup] failed:', err instanceof Error ? err.message : String(err))
@@ -61,24 +84,30 @@ export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
     }
   }
 
-  /** Stage 1-6: pick → decrypt → validate. Only staging — no swap yet. */
-  const handleValidateFile = async (file: File): Promise<void> => {
-    setError(null)
-    setStatus(null)
+  /**
+   * Restore step 1: decrypt + validate the chosen file with the entered
+   * password. Nothing is touched yet — the swap happens only after the user
+   * confirms, and only a fully validated backup can reach that point.
+   */
+  const handleRestore = async (): Promise<void> => {
+    if (!file) {
+      fail(t({ my: 'Backup ဖိုင် ရွေးပါ', en: 'Select a backup file' }))
+      return
+    }
     if (restorePassword.length === 0) {
       fail(t({ my: 'Backup စကားဝှက် ထည့်ပါ', en: 'Enter the backup password' }))
       return
     }
     setBusy(true)
+    setError(null)
+    setStatus(null)
     try {
       const bytes = new Uint8Array(await file.arrayBuffer())
       // Full envelope + password + authenticity validation WITHOUT touching
       // the live database (decryptBackup throws before any data is returned).
       await decryptBackup(bytes, restorePassword)
-      setPendingBytes(bytes)
-      flash(t({ my: 'Backup စစ်ဆေးပြီး — အတည်ပြုပါ', en: 'Backup validated — confirm to replace existing data' }))
+      setConfirmRestore(true)
     } catch (err) {
-      setPendingBytes(null)
       if (err instanceof BackupCryptoError) {
         fail(t({ my: 'စကားဝှက်မှားယွင်းသည် သို့မဟုတ် ဖိုင်ပျက်စီးသည်', en: 'Wrong password or corrupted backup' }))
       } else {
@@ -90,20 +119,20 @@ export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
     }
   }
 
-  /** Stage 7-10 (user-confirmed): validated swap + full app re-bootstrap. */
+  /** Restore step 2 (user-confirmed): validated swap + full app reload. */
   const handleRestoreConfirmed = async (): Promise<void> => {
-    if (!pendingBytes) return
+    if (!file) return
     setBusy(true)
+    setConfirmRestore(false)
     try {
-      await restoreBackupFromBytes(getDatabase(), pendingBytes, restorePassword)
-      setPendingBytes(null)
+      const bytes = new Uint8Array(await file.arrayBuffer())
+      await restoreBackupFromBytes(getDatabase(), bytes, restorePassword)
       setRestorePassword('')
-      // Re-run the app bootstrap so every store re-reads the restored data,
-      // then land on the Dashboard.
-      const { useAppStore } = await import('@/app/state/useAppStore')
-      await useAppStore.getState().initialize()
-      window.location.hash = '#/'
-      flash(t({ my: '✓ ပြန်ထည့်ပြီး', en: '✓ Restored' }))
+      setStatus(t({ my: '✓ ပြန်ထည့်ပြီး — ပြန်စနေသည်…', en: '✓ Restored — reloading…' }))
+      // Reference behavior: a FULL reload re-runs bootstrap from the persisted
+      // (restored) image — restored data is visible immediately and durable
+      // across refresh/restart. No in-place store patching to get stale.
+      window.setTimeout(() => reloadApp.run(), RELOAD_DELAY_MS)
     } catch (err) {
       if (err instanceof BackupCryptoError) {
         fail(t({ my: 'စကားဝှက်မှားယွင်းသည် သို့မဟုတ် ဖိုင်ပျက်စီးသည်', en: 'Wrong password or corrupted backup' }))
@@ -118,46 +147,84 @@ export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
 
   return (
     <div className="space-y-4">
-      <SettingsSection title={t({ my: 'Backup & Restore', en: 'Backup & Restore' })}>
-        <div className="space-y-3 p-3">
-          <p className="text-sm">
-            <Text role="secondary">
-              {t({
-                my: 'Backup ဖိုင်တွင် အချက်အလက်အားလုံး ပါဝင်ပြီး စကားဝှက်ဖြင့် ကာကွယ်ထားသည်။',
-                en: 'The backup file contains all app data, protected by your password (AES-256-GCM).',
-              })}
+      <SettingsSection title={t({ my: 'Backup & Restore', en: 'BACKUP & RESTORE' })}>
+        <div className="space-y-4 p-4">
+          {/* ------------------------------------------------ Backup ------ */}
+          <section className="space-y-2">
+            <div className="flex items-center gap-2">
+              <IconDatabase size="h-4 w-4 shrink-0 text-accent" />
+              <Text role="primary" className="text-sm font-semibold">
+                {t({ my: 'Backup', en: 'Backup' })}
+              </Text>
+            </div>
+            <Text role="secondary" className="block text-sm">
+              {t({ my: 'အချက်အလက်အားလုံးကို စကားဝှက်ဖြင့် ကာကွယ်သိမ်းဆည်းမည်', en: 'Protect your app data with a password.' })}
             </Text>
-          </p>
-
-          <SettingsRow
-            icon={<IconDatabase />}
-            title={t({ my: 'Backup ပြုလုပ်ရန်', en: 'Create backup' })}
-            description={t({ my: 'စကားဝှက်ဖြင့် ကုဒ်ဝှက်သိမ်းဆည်းမည်', en: 'Encrypted with your password' })}
-          />
-          <input
-            type="password"
-            value={backupPassword}
-            onChange={(e) => setBackupPassword(e.target.value)}
-            placeholder={t({ my: 'Backup စကားဝှက်', en: 'Backup password' })}
-            aria-label={t({ my: 'Backup စကားဝှက်', en: 'Backup password' })}
-            autoComplete="new-password"
-            className="w-full rounded border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void handleBackup()}
-            className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-text transition-colors hover:bg-accent-hover disabled:opacity-50"
-          >
-            {t({ my: 'Backup သိမ်းမည်', en: 'Save backup' })}
-          </button>
-
-          <div className="border-t border-border pt-3">
-            <SettingsRow
-              icon={<IconRestore />}
-              title={t({ my: 'Backup မှ ပြန်ထည့်ရန်', en: 'Restore from backup' })}
-              description={t({ my: 'လက်ရှိအချက်အလက်အား အစားထိုးမည်', en: 'Replaces ALL existing data' })}
+            <input
+              type="password"
+              value={backupPassword}
+              onChange={(e) => setBackupPassword(e.target.value)}
+              placeholder={t({ my: 'Backup စကားဝှက်', en: 'Backup password' })}
+              aria-label={t({ my: 'Backup စကားဝှက်', en: 'Backup password' })}
+              autoComplete="new-password"
+              className={inputClass}
             />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void handleBackup()}
+              className={primaryButtonClass}
+            >
+              {t({ my: 'Backup သိမ်းမည်', en: 'Save backup' })}
+            </button>
+          </section>
+
+          <div className="border-t border-border" aria-hidden="true" />
+
+          {/* ----------------------------------------------- Restore ------ */}
+          <section className="space-y-2">
+            <div className="flex items-center gap-2">
+              <IconRestore size="h-4 w-4 shrink-0 text-accent" />
+              <Text role="primary" className="text-sm font-semibold">
+                {t({ my: 'ပြန်ထည့်ခြင်း', en: 'Restore' })}
+              </Text>
+            </div>
+            <Text role="secondary" className="block text-sm">
+              {t({ my: 'Backup ဖိုင်မှ အချက်အလက်ကို ပြန်ထည့်မည်', en: 'Restore your data from a backup file.' })}
+            </Text>
+            <Text role="secondary" className="block text-sm font-medium text-content-danger">
+              {t({ my: 'လက်ရှိအချက်အလက်များ အစားထိုးခံရမည်', en: 'This will replace your current data.' })}
+            </Text>
+
+            {/* Styled picker: the native input stays hidden; the button shows
+                the chosen file name (never the bare "Browse… No file chosen"). */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={`.${BACKUP_EXTENSION},application/octet-stream`}
+              aria-label={t({ my: 'Backup ဖိုင် ရွေးရန်', en: 'Choose backup file' })}
+              className="hidden"
+              onChange={(e) => {
+                const picked = e.target.files?.[0] ?? null
+                e.target.value = '' // allow re-picking the same file
+                setFile(picked)
+                setError(null)
+                setStatus(null)
+              }}
+            />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+              className={`${inputClass} flex items-center justify-between text-left hover:border-accent`}
+            >
+              <span className={file ? 'text-content' : 'text-content-muted'}>
+                {file ? file.name : t({ my: 'Backup ဖိုင် ရွေးမည်', en: 'Select backup file' })}
+              </span>
+              <span aria-hidden="true" className="text-content-muted">
+                {file ? '✓' : '📄'}
+              </span>
+            </button>
             <input
               type="password"
               value={restorePassword}
@@ -165,38 +232,26 @@ export function BackupTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element {
               placeholder={t({ my: 'Backup စကားဝှက်', en: 'Backup password' })}
               aria-label={t({ my: 'Restore စကားဝှက်', en: 'Restore password' })}
               autoComplete="off"
-              className="mt-2 w-full rounded border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
-            />
-            {/* Native file picker — works on web AND Android WebView (same
-                input element; no platform branching). */}
-            <input
-              type="file"
-              accept={`.${BACKUP_EXTENSION},application/octet-stream`}
-              aria-label={t({ my: 'Backup ဖိုင် ရွေးရန်', en: 'Choose backup file' })}
-              className="mt-2 w-full text-sm"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                e.target.value = '' // allow re-picking the same file
-                if (file) void handleValidateFile(file)
-              }}
+              className={inputClass}
             />
             <button
               type="button"
-              disabled={busy || !pendingBytes}
-              onClick={() => setConfirmRestore(true)}
-              className="mt-2 w-full rounded-lg border border-danger px-4 py-2 text-sm font-medium text-content-danger transition-colors hover:bg-surface-hover disabled:opacity-50"
+              disabled={busy || !file}
+              onClick={() => void handleRestore()}
+              className={primaryButtonClass}
             >
-              {t({ my: 'လက်ရှိအချက်အလက်ကို အစားထိုးမည်', en: 'Replace existing data' })}
+              {t({ my: 'ပြန်ထည့်မည်', en: 'Restore backup' })}
             </button>
-          </div>
+          </section>
 
+          {/* ------------------------------------- Status / errors -------- */}
           {status && (
-            <p role="status" className="text-sm">
-              <Text role="primary">{status}</Text>
+            <p role="status" className="text-sm font-medium text-success">
+              <Text role="primary" className="text-success">{status}</Text>
             </p>
           )}
           {error && (
-            <p role="alert" className="text-sm">
+            <p role="alert" className="text-sm font-medium text-content-danger">
               <Text role="primary" className="text-content-danger">{error}</Text>
             </p>
           )}
