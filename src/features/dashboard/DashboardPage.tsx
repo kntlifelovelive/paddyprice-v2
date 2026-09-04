@@ -11,7 +11,7 @@
  *
  * All colors/text use the semantic theme tokens; no hard-coded white/black.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useAppStore } from '@/app/state'
 import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
@@ -25,10 +25,26 @@ import {
   type DashboardView,
 } from '@/services/reports'
 import { settingsService } from '@/services/settings'
-import { formatDateDMY, formatMMK, formatNumber, formatTins } from '@/shared/format'
+import { generateHomeSummaryPdf } from '@/services/pdf/service'
+import { printerService } from '@/services/print/printerService'
+import {
+  formatDateDMY,
+  formatMMK,
+  formatNumber,
+  formatTime12Short,
+  formatTins,
+  todayISO,
+} from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { Text } from '@/shared/ui'
+import { PdfIcon, PrintIcon, Text } from '@/shared/ui'
+import type { PrintReceipt } from '@/types/print'
 import type { RiceType } from '@/types'
+
+/** Format YYYY-MM-DD as DD/MM/YYYY — the reference Home report's period line. */
+function formatDateDisplay(iso: string): string {
+  const [y, m, d] = iso.split('T')[0].split('-')
+  return `${d}/${m}/${y}`
+}
 
 type PeriodSummary = DashboardData['summaries']['today']
 type DashboardGroup = DashboardData['groups'][number]
@@ -246,6 +262,18 @@ export function DashboardPage(): JSX.Element {
     error: null,
     lbPerTin: 50,
   })
+  const [busy, setBusy] = useState(false)
+  const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!flash) return
+    if (flashTimer.current) clearTimeout(flashTimer.current)
+    flashTimer.current = setTimeout(() => setFlash(null), 3000)
+    return () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    }
+  }, [flash])
 
   useEffect(() => {
     if (!dbReady) return
@@ -273,6 +301,139 @@ export function DashboardPage(): JSX.Element {
       alive = false
     }
   }, [dbReady, period, riceTypeId])
+
+  /** Reference Home period label/file-tag for the current view (today-based). */
+  const reportMeta = () => {
+    const now = todayISO()
+    if (period === 'today') {
+      return {
+        title: 'DAILY REPORT',
+        periodLabel: `Period: ${formatDateDisplay(now)}`,
+        fileTag: `daily_${now}`,
+        label: `DAILY ${now}`,
+      }
+    }
+    if (period === 'month') {
+      const ym = now.slice(0, 7)
+      return {
+        title: 'MONTHLY REPORT',
+        periodLabel: `Period: ${ym}`,
+        fileTag: `monthly_${ym}`,
+        label: `MONTHLY ${ym}`,
+      }
+    }
+    const y = now.slice(0, 4)
+    return {
+      title: 'YEARLY REPORT',
+      periodLabel: `Period: ${y}`,
+      fileTag: `yearly_${y}`,
+      label: `YEARLY ${y}`,
+    }
+  }
+
+  /** Export PDF — reference summary-PDF of the CURRENT period + filter. */
+  const handlePdfClick = async (): Promise<void> => {
+    if (!state.view) return
+    setBusy(true)
+    try {
+      const view = state.view
+      const { title, periodLabel, fileTag } = reportMeta()
+      const typeName =
+        riceTypeId != null ? riceTypes.find((rt) => rt.id === riceTypeId)?.name : undefined
+      await generateHomeSummaryPdf({
+        title,
+        period_label: typeName ? `${periodLabel} · ${typeName}` : periodLabel,
+        file_tag: typeName ? `${fileTag}_type${riceTypeId!}` : fileTag,
+        // Same stored-snapshot group rows the Home table renders (never merged),
+        // with Tin + Extra Lb decomposed from each row's net pound exactly as
+        // the Home table shows it (`decomposeNetPound`).
+        rows: view.groups.map((r) => {
+          const { tins, extraLb } = decomposeNetPound(r.net_pound, state.lbPerTin)
+          return {
+            rice_type_name: r.rice_type_name,
+            total_bags: r.total_bags,
+            total_pound: r.net_pound,
+            total_tin: tins,
+            total_extra_lb: extraLb,
+            price_100_tin: r.price_100_tin,
+            total_amount: r.total_amount,
+          }
+        }),
+        // Same summary source the Home totals strip consumes; the total Tin +
+        // Extra Lb are the single decomposition of the total net pound (the
+        // same values the Home strip displays).
+        totals: (() => {
+          const { tins, extraLb } = decomposeNetPound(view.summary.total_net_pound, state.lbPerTin)
+          return {
+            bags: view.summary.total_bags,
+            pound: view.summary.total_net_pound,
+            tin: tins,
+            extra_lb: extraLb,
+            amount: view.summary.total_amount,
+          }
+        })(),
+      })
+      setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PDF failed' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 80mm thermal print — reference Home summary receipt, forced to 80mm. */
+  const handlePrintClick = async (): Promise<void> => {
+    if (!state.view) return
+    setBusy(true)
+    try {
+      const view = state.view
+      const db = getDatabase()
+      const s = settingsService.load(db)
+      const { label } = reportMeta()
+      const now = new Date().toISOString()
+      const typeName =
+        riceTypeId != null ? riceTypes.find((rt) => rt.id === riceTypeId)?.name : undefined
+      const receipt: PrintReceipt = {
+        company_name: s.company_name,
+        company_address: s.company_address,
+        company_phone: s.company_phone,
+        invoice_no: label,
+        date: todayISO(),
+        time: formatTime12Short(now),
+        generated_at: now,
+        farmer_name: '— ALL CUSTOMERS —',
+        farmer_address: '',
+        farmer_phone: '',
+        rows: view.groups.map((r) => ({
+          rice_type_name: r.rice_type_name,
+          pounds: r.net_pound,
+          tins: r.total_tins,
+          price_100_tin: r.price_100_tin,
+          price_per_tin: r.price_per_tin,
+          amount: r.total_amount,
+        })),
+        bags: [],
+        total_pounds: view.summary.total_net_pound,
+        total_tins: view.summary.total_tins,
+        total_amount: view.summary.total_amount,
+        remark: typeName
+          ? `Type: ${typeName}`
+          : period === 'today'
+            ? `Date: ${todayISO()}`
+            : period === 'month'
+              ? `Month: ${todayISO().slice(0, 7)}`
+              : `Year: ${todayISO().slice(0, 4)}`,
+      }
+      // Reference forces the wide 80mm layout for the summary without changing
+      // the saved printer setting (PrinterService.configure({...cfg, paperWidth:'80'})).
+      await printerService.print(receipt, { paperWidth: '80' })
+      setFlash({ kind: 'ok', text: t({ my: 'ပရင့်ထုတ်နေသည်', en: 'Printing' }) })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'Print failed' })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (state.error) {
     return (
@@ -350,6 +511,41 @@ export function DashboardPage(): JSX.Element {
           ))}
         </select>
       </div>
+
+      {/* Export / print — reference Home toolbar (filter-aware; disabled when no data). */}
+      <div className="flex flex-wrap gap-2 sm:grid sm:max-w-md sm:grid-cols-2">
+        <button
+          type="button"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+          disabled={busy || view.groups.length === 0}
+          onClick={() => void handlePdfClick()}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <PdfIcon className="h-4 w-4" />
+            <span>{t({ my: 'PDF ထုတ်', en: 'Export PDF' })}</span>
+          </span>
+        </button>
+        <button
+          type="button"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-hover disabled:opacity-50"
+          disabled={busy || view.groups.length === 0}
+          onClick={() => void handlePrintClick()}
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <PrintIcon className="h-4 w-4" />
+            <span>{t({ my: 'ပရင့် (80mm)', en: 'Print (80mm)' })}</span>
+          </span>
+        </button>
+      </div>
+
+      {flash && (
+        <div
+          role="status"
+          className={`rounded border px-3 py-1.5 text-sm ${flash.kind === 'ok' ? 'border-success/40 bg-success/10 text-success' : 'border-danger/40 bg-danger/10 text-danger'}`}
+        >
+          {flash.text}
+        </div>
+      )}
 
       {/* Summary strip for the selected period (reference Home totals UI). */}
       <SummaryStrip

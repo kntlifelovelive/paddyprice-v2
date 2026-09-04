@@ -19,6 +19,7 @@ import type {
   PrinterStatus,
   PrintReceipt,
   PrinterType,
+  PaperWidth,
 } from '@/types/print'
 import { DesktopPrinter } from '@/infrastructure/platform/printers/DesktopPrinter'
 import { MockPrinterAdapter } from '@/infrastructure/platform/printers/MockPrinterAdapter'
@@ -45,8 +46,13 @@ export interface PrinterService {
   getAdapter(): PrinterAdapter
   /** Current status of the selected adapter. */
   getStatus(): PrinterStatus
-  /** Print the receipt using the selected adapter + settings (paper width, copies). */
-  print(receipt: PrintReceipt): Promise<void>
+  /**
+   * Print the receipt using the selected adapter + settings (paper width, copies).
+   * An explicit `paperWidth` overrides the saved setting — used by the Home
+   * export/print toolbar which forces the 80mm wide layout (reference:
+   * PrinterService.configure({ ...cfg, paperWidth: '80' })).
+   */
+  print(receipt: PrintReceipt, options?: { paperWidth?: PaperWidth }): Promise<void>
   /** Print a short test receipt using the selected adapter. */
   testPrint(): Promise<void>
   /** Connect the selected adapter (Bluetooth/Mock). No-op for desktop. */
@@ -77,11 +83,14 @@ class PrinterServiceImpl implements PrinterService {
     return this.getAdapter().getStatus()
   }
 
-  async print(receipt: PrintReceipt): Promise<void> {
+  async print(receipt: PrintReceipt, options?: { paperWidth?: PaperWidth }): Promise<void> {
     const db = getDatabase()
     const s = settingsService.load(db)
-    const options: PrintOptions = { paperWidth: s.paper_width, copies: s.copies }
-    await this.getAdapter().print(receipt, options)
+    const opts: PrintOptions = {
+      paperWidth: options?.paperWidth ?? s.paper_width,
+      copies: s.copies,
+    }
+    await this.getAdapter().print(receipt, opts)
   }
 
   async testPrint(): Promise<void> {

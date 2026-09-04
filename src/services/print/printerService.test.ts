@@ -117,4 +117,22 @@ describe('printerService', () => {
     // 'none' maps to the DesktopPrinter adapter; status must not throw.
     expect(printerService.getStatus()).toBeDefined()
   })
+
+  it('honours an explicit paperWidth override (80mm) without changing the saved setting', async () => {
+    // Saved width is 58mm, but the Home export/print forces the wide 80mm
+    // layout (reference PrinterService.configure({...cfg, paperWidth:'80'})).
+    settingsService.update(db, 'printer_type', 'mock')
+    settingsService.update(db, 'paper_width', '58')
+    const adapter = printerService.getAdapter()
+    if ('connect' in adapter) await adapter.connect?.()
+    await printerService.print(RECEIPT, { paperWidth: '80' })
+    if ('lastOutput' in adapter) {
+      const out = (adapter as { lastOutput: string }).lastOutput
+      // 80mm paper -> 48 "=" heavy rules (reference daily/monthly receipt).
+      expect(out.split('\n').some((line) => line === '='.repeat(48))).toBe(true)
+      expect(out.split('\n').some((line) => line === '='.repeat(32))).toBe(false)
+    }
+    // The saved 58mm setting is left unchanged.
+    expect(settingsService.load(db).paper_width).toBe('58')
+  })
 })

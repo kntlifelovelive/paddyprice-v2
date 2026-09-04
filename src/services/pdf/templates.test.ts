@@ -13,11 +13,17 @@ import { formatMMK, formatNumber, formatTins } from '@/shared/format'
 import { decomposeNetPound } from '@/domain/paddy/tinBreakdown'
 import type {
   BagWeightReportInput,
+  HomeSummaryPdfInput,
   VoucherReportInput,
   YearlyReportInput,
 } from '@/types/pdf'
 import { A4_HEIGHT_MM, planA4Pages } from './render'
-import { buildBagWeightNode, buildVoucherNode, buildYearlyNode } from './templates'
+import {
+  buildBagWeightNode,
+  buildHomeSummaryNode,
+  buildVoucherNode,
+  buildYearlyNode,
+} from './templates'
 
 const COMPANY = {
   name: 'PadDy Trading',
@@ -313,5 +319,97 @@ describe('PDF typography parity (report pages)', () => {
     // amount toFixed(0)) — the PDF never recomputes anything.
     expect(text).toContain('875.00')
     expect(text).toContain('323750')
+  })
+})
+
+/* ------------------------------------------------------------------ */
+/* G. Home Period Summary (reference buildSummaryReportHtml)           */
+/* ------------------------------------------------------------------ */
+
+const HOME_SUMMARY: HomeSummaryPdfInput = {
+  company: COMPANY,
+  title: 'DAILY REPORT',
+  period_label: 'Period: 01/09/2026 · Shwe War Tun',
+  file_tag: 'daily_2026-09-01_type1',
+  rows: [
+    {
+      rice_type_name: 'Shwe War Tun',
+      total_bags: 3,
+      total_pound: 373,
+      total_tin: 7,
+      total_extra_lb: 23,
+      price_100_tin: 1850000,
+      total_amount: 148000,
+    },
+  ],
+  // decomposeNetPound(373, 50) → { tins: 7, extraLb: 23 } (7×50 = 350, remainder 23).
+  totals: { bags: 3, pound: 373, tin: 7, extra_lb: 23, amount: 148000 },
+  generated_at: '2026-09-01T11:00:00.000Z',
+}
+
+describe('buildHomeSummaryNode (reference buildSummaryReportHtml format)', () => {
+  it('renders the reference letterhead, title, period line and footer', () => {
+    const node = buildHomeSummaryNode(HOME_SUMMARY)
+    const text = node.textContent ?? ''
+    expect(text).toContain('PadDy Trading')
+    expect(text).toContain('DAILY REPORT')
+    expect(text).toContain('Period: 01/09/2026 · Shwe War Tun')
+    expect(text).toContain('Thank you for your business')
+    // Generated date uses the reference DD-MMM-YYYY hh:mm AM/PM formatter.
+    expect(text).toContain('Generated: 01-Sep-2026')
+  })
+
+  it('uses reference page margins and report typography', () => {
+    const node = buildHomeSummaryNode(HOME_SUMMARY)
+    expect(node.style.width).toBe('210mm')
+    expect(node.style.padding).toBe('36px 44px')
+    // Letterhead name is 24px bold; title 20px bold with 2px letter-spacing.
+    const letterhead = node.children[0].children[0] as HTMLElement
+    expect(letterhead.style.fontSize).toBe('24px')
+    expect(letterhead.style.fontWeight).toBe('700')
+  })
+
+  it('renders the dark-headed summary table with the reference columns', () => {
+    const node = buildHomeSummaryNode(HOME_SUMMARY)
+    const table = node.querySelector('table') as HTMLTableElement
+    expect(table.style.fontSize).toBe('13px')
+    const headRow = table.querySelector('thead tr') as HTMLElement
+    expect(headRow.style.background).toBe('rgb(17, 24, 39)')
+    const headers = Array.from(headRow.children).map((th) => (th as HTMLElement).textContent)
+    expect(headers).toEqual([
+      'No',
+      'Paddy Type',
+      'Bags',
+      'Pound',
+      'Tin',
+      'Extra Lb',
+      'Price / 100 Tin',
+      'Amount (MMK)',
+    ])
+  })
+
+  it('renders Tin as whole tins plus an Extra Lb column (decomposition)', () => {
+    const node = buildHomeSummaryNode(HOME_SUMMARY)
+    const text = node.textContent ?? ''
+    // 373 lb → 7 Tin + 23 Extra Lb (the same decomposeNetPound the Home table uses).
+    expect(text).toContain(formatTins(7))
+    expect(text).toContain(formatNumber(23))
+    // No decimal tins like "7.46" appear in the decomposition columns.
+    expect(text).not.toContain(formatTins(7.46))
+  })
+
+  it('renders the exact snapshot values (rows + Total row) untouched', () => {
+    const node = buildHomeSummaryNode(HOME_SUMMARY)
+    const text = node.textContent ?? ''
+    expect(text).toContain('Shwe War Tun')
+    expect(text).toContain(formatNumber(373))
+    expect(text).toContain(formatTins(7))
+    expect(text).toContain(formatNumber(23))
+    expect(text).toContain(formatMMK(1850000))
+    expect(text).toContain(formatMMK(148000))
+    // Total row: greyed bold background, Total + bags/pound/tin/amount.
+    const tfoot = node.querySelector('tfoot') as HTMLElement
+    expect(tfoot?.children[0]?.textContent ?? '').toContain('Total')
+    expect(tfoot?.children[0]?.textContent ?? '').toContain(formatMMK(148000))
   })
 })

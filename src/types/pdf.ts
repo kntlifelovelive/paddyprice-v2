@@ -229,3 +229,41 @@ export interface FarmerReportInput {
   purchases: FarmerReportPurchaseRow[]
   generated_at: string
 }
+
+/* ------------------------------------------------------------------ */
+/* F. Home Period Summary (reference buildSummaryReportHtml port)      */
+/* ------------------------------------------------------------------ */
+
+export interface HomeSummaryPdfRow {
+  rice_type_name: string
+  total_bags: number
+  total_pound: number
+  /** Whole-tin count (floor) from the same `decomposeNetPound` the Home table shows. */
+  total_tin: number
+  /** Remaining pounds after the whole tins — shown in the Extra Lb column. */
+  total_extra_lb: number
+  price_100_tin: number
+  total_amount: number
+}
+
+export interface HomeSummaryPdfInput {
+  company: VoucherReportInput['company']
+  /** Report title, e.g. 'DAILY REPORT'. */
+  title: string
+  /** Human-readable period line, e.g. 'Period: 26/08/2026 · စပါးရွှေ'. */
+  period_label: string
+  /** Filename fragment, e.g. 'daily_2026-08-26'. */
+  file_tag: string
+  /** Home group rows (Farmer × Paddy Type × Applied Price) — never merged. */
+  rows: HomeSummaryPdfRow[]
+  totals: {
+    bags: number
+    pound: number
+    /** Whole-tin count (floor) of the total net pound. */
+    tin: number
+    /** Remaining pounds after the whole tins. */
+    extra_lb: number
+    amount: number
+  }
+  generated_at: string
+}

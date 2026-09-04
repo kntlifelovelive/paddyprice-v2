@@ -27,12 +27,14 @@
  * purchase PDFs.
  */
 import { htmlToPdf } from './render';
+import { buildRelativePath } from './paths';
 import {
   buildVoucherNode,
   buildBagWeightNode,
   buildYearlyNode,
   buildPeriodSummaryNode,
   buildFarmerReportNode,
+  buildHomeSummaryNode,
 } from './templates';
 import type {
   VoucherReportInput,
@@ -47,6 +49,7 @@ import type {
   FarmerReportInput,
   FarmerReportPaddyTypeRow,
   FarmerReportPurchaseRow,
+  HomeSummaryPdfInput,
 } from '@/types/pdf';
 import { createPdfStorage } from '@/infrastructure/platform/fs';
 import type { StoragePort } from '@/types/storage';
@@ -629,5 +632,42 @@ export async function generateFarmerReportPdf(
   const html = buildFarmerReportNode(input);
   const pdfBytes = await htmlToPdf(html);
   const relativePath = `farmer/farmer${farmerId}_${year ?? 'all'}.pdf`;
+  return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
+}
+
+/**
+ * Home period-summary PDF (reference ~/paddyprice exportSummaryPdf port).
+ *
+ * Data comes from the SAME `DashboardView` snapshot aggregators the Home
+ * table renders (services/reports.getDashboardView): `groups` are the
+ * Farmer × Paddy Type × Applied Price rows and `summary` is their total.
+ * No business calculation is duplicated or re-derived here.
+ *
+ * Filename parity: `paddyprice_report_{fileTag}.pdf` under the configured
+ * `summary/` directory (reference: `pdf/reports/summary/paddyprice_report_{fileTag}.pdf`).
+ */
+export async function generateHomeSummaryPdf(
+  input: Omit<HomeSummaryPdfInput, 'company' | 'generated_at'>,
+  storage?: StoragePort,
+): Promise<PdfArtifact> {
+  const db = getDatabase();
+  const s = loadSettings.settingsService.load(db);
+  const full: HomeSummaryPdfInput = {
+    company: {
+      name: s.company_name,
+      address: s.company_address,
+      phone: s.company_phone,
+      footer_text: s.company_footer_text,
+    },
+    ...input,
+    generated_at: new Date().toISOString(),
+  };
+  const html = buildHomeSummaryNode(full);
+  const pdfBytes = await htmlToPdf(html);
+  const relativePath = buildRelativePath(
+    s.pdf_dir,
+    'summary',
+    `paddyprice_report_${input.file_tag}.pdf`,
+  );
   return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }

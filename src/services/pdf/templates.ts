@@ -12,6 +12,7 @@
 import type {
   BagWeightReportInput,
   FarmerReportInput,
+  HomeSummaryPdfInput,
   PeriodSummaryInput,
   VoucherReportInput,
   YearlyReportInput,
@@ -20,6 +21,7 @@ import {
   A4_WIDTH_MM,
 } from './render'
 import {
+  formatDateDMY,
   formatMMK,
   formatNumber,
   formatTins,
@@ -862,5 +864,147 @@ export function buildFarmerReportNode(
   }
   table.appendChild(tbody)
   root.appendChild(table)
+  return root
+}
+/* ------------------------------------------------------------------ */
+/* F. Home Period Summary (reference buildSummaryReportHtml port)      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reference Home "Export PDF" report (~/paddyprice/src/services/pdf.ts
+ * buildSummaryReportHtml): centered company letterhead → DAILY/MONTHLY/YEARLY
+ * REPORT title → Period line → dark-headed summary table with a Total row →
+ * "Thank you for your business" + Generated timestamp footer.
+ *
+ * The rows are the Home group rows (Farmer × Paddy Type × Applied Price) and
+ * are NEVER merged — each row shows only the Paddy Type (reference behavior).
+ * All values are ALREADY-computed snapshot/aggregate numbers; no business
+ * calculation happens here (the caller supplies them from the same source the
+ * Home table consumes).
+ */
+export function buildHomeSummaryNode(
+  input: HomeSummaryPdfInput,
+  factory: DocumentFactory = defaultFactory,
+): HTMLElement {
+  const root = el(factory, 'div', null, {
+    width: `${A4_WIDTH_MM}mm`,
+    // Reference report page margins (~/paddyprice buildSummaryReportHtml).
+    padding: '36px 44px',
+    boxSizing: 'border-box',
+    background: '#ffffff',
+    color: '#111827',
+    fontFamily:
+      '"Noto Sans Myanmar", "Myanmar Text", system-ui, -apple-system, "Segoe UI", sans-serif',
+  })
+
+  // Company letterhead (double rule; no letter-spacing — Myanmar-safe).
+  const letterhead = el(factory, 'div', null, {
+    textAlign: 'center',
+    paddingBottom: '14px',
+    borderBottom: '3px double #111827',
+  })
+  letterhead.appendChild(
+    el(factory, 'div', input.company.name, { fontSize: '24px', fontWeight: '700' }),
+  )
+  if (input.company.address)
+    letterhead.appendChild(
+      el(factory, 'div', input.company.address, { fontSize: '12px', marginTop: '2px' }),
+    )
+  if (input.company.phone)
+    letterhead.appendChild(el(factory, 'div', input.company.phone, { fontSize: '12px' }))
+  root.appendChild(letterhead)
+
+  // Title — 20px bold with 2px letter-spacing (reference; P2 titles are English).
+  const titleWrap = el(factory, 'div', null, { textAlign: 'center', margin: '18px 0 4px' })
+  titleWrap.appendChild(
+    el(factory, 'div', input.title, {
+      fontSize: '20px',
+      fontWeight: '700',
+      letterSpacing: '2px',
+    }),
+  )
+  root.appendChild(titleWrap)
+
+  // Period line — 14px semibold (reference).
+  const periodWrap = el(factory, 'div', null, { textAlign: 'center', margin: '10px 0' })
+  periodWrap.appendChild(
+    el(factory, 'div', input.period_label, { fontSize: '14px', fontWeight: '600' }),
+  )
+  root.appendChild(periodWrap)
+
+  const table = el(factory, 'table', null, {
+    width: '100%',
+    borderCollapse: 'collapse',
+    marginTop: '16px',
+    fontSize: '13px',
+  })
+
+  const thead = el(factory, 'thead')
+  const headRow = el(factory, 'tr', null, { background: '#111827', color: '#ffffff' })
+  for (const [text, width, align] of [
+    ['No', '36px', 'left'],
+    ['Paddy Type', '', 'left'],
+    ['Bags', '60px', 'right'],
+    ['Pound', '90px', 'right'],
+    ['Tin', '70px', 'right'],
+    ['Extra Lb', '70px', 'right'],
+    ['Price / 100 Tin', '140px', 'right'],
+    ['Amount (MMK)', '130px', 'right'],
+  ] as const) {
+    const th = el(factory, 'th', text, { ...TH_STYLE, textAlign: align })
+    if (width) th.style.width = width
+    headRow.appendChild(th)
+  }
+  thead.appendChild(headRow)
+  table.appendChild(thead)
+
+  const tbody = el(factory, 'tbody')
+  input.rows.forEach((row, i) => {
+    const tr = el(factory, 'tr')
+    tr.appendChild(el(factory, 'td', String(i + 1), { ...TD_STYLE, textAlign: 'center' }))
+    tr.appendChild(el(factory, 'td', row.rice_type_name, { ...TD_STYLE }))
+    tr.appendChild(el(factory, 'td', formatNumber(row.total_bags), { ...TD_STYLE, textAlign: 'right' }))
+    tr.appendChild(el(factory, 'td', formatNumber(row.total_pound), { ...TD_STYLE, textAlign: 'right' }))
+    tr.appendChild(el(factory, 'td', formatTins(row.total_tin), { ...TD_STYLE, textAlign: 'right' }))
+    tr.appendChild(el(factory, 'td', formatNumber(row.total_extra_lb), { ...TD_STYLE, textAlign: 'right' }))
+    tr.appendChild(el(factory, 'td', formatMMK(row.price_100_tin), { ...TD_STYLE, textAlign: 'right' }))
+    tr.appendChild(el(factory, 'td', formatMMK(row.total_amount), { ...TD_STYLE, textAlign: 'right' }))
+    tbody.appendChild(tr)
+  })
+  table.appendChild(tbody)
+
+  // Total row — reference: greyed bold, price cell blank.
+  const tfoot = el(factory, 'tfoot')
+  const totalRow = el(factory, 'tr', null, { background: '#f3f4f6', fontWeight: '700' })
+  const totalLabel = el(factory, 'td', 'Total', TD_STYLE)
+  ;(totalLabel as HTMLTableCellElement).colSpan = 2
+  totalRow.appendChild(totalLabel)
+  totalRow.appendChild(el(factory, 'td', formatNumber(input.totals.bags), { ...TD_STYLE, textAlign: 'right' }))
+  totalRow.appendChild(el(factory, 'td', formatNumber(input.totals.pound), { ...TD_STYLE, textAlign: 'right' }))
+  totalRow.appendChild(el(factory, 'td', formatTins(input.totals.tin), { ...TD_STYLE, textAlign: 'right' }))
+  totalRow.appendChild(el(factory, 'td', formatNumber(input.totals.extra_lb), { ...TD_STYLE, textAlign: 'right' }))
+  totalRow.appendChild(el(factory, 'td', '', TD_STYLE))
+  totalRow.appendChild(el(factory, 'td', formatMMK(input.totals.amount), { ...TD_STYLE, textAlign: 'right' }))
+  tfoot.appendChild(totalRow)
+  table.appendChild(tfoot)
+
+  root.appendChild(table)
+
+  // Footer — reference buildSummaryReportHtml: Thank you + Generated (DD-MMM-YYYY hh:mm AM/PM).
+  const footer = el(factory, 'div', null, {
+    textAlign: 'center',
+    marginTop: '26px',
+    paddingTop: '10px',
+    borderTop: '1px solid #d1d5db',
+    fontSize: '12px',
+    color: '#6b7280',
+  })
+  footer.appendChild(el(factory, 'div', 'Thank you for your business'))
+  const generatedAt = `${formatDateDMY(input.generated_at)} ${formatTime12Short(input.generated_at)}`
+  footer.appendChild(
+    el(factory, 'div', `Generated: ${generatedAt}`, { marginTop: '8px' }),
+  )
+  root.appendChild(footer)
+
   return root
 }
