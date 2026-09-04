@@ -142,6 +142,8 @@ describe('buildVoucherNode (reference voucher format)', () => {
     const text = buildVoucherNode(VOUCHER).textContent ?? ''
     expect(text).toContain('PSO-202609-0001')
     expect(text).toContain('Mg Mg')
+    expect(text).toContain('Insein') // customer address
+    expect(text).toContain('09-555111') // customer phone
     expect(text).toContain('Shwe War Tun')
     expect(text).toContain(formatNumber(400)) // net pound (row + total)
     expect(text).toContain(formatTins(8)) // total tin (row + total)

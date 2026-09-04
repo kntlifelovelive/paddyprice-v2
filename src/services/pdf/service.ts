@@ -92,7 +92,12 @@ export interface PdfArtifact {
 async function loadPurchaseRecord(
   db: ReturnType<typeof getDatabase>,
   purchaseId: number,
-): Promise<{ snapshot: any; bags: Array<{ weight_lb: number; moisture_label: MoistureLabelValue }> } | null> {
+): Promise<{
+  snapshot: any;
+  bags: Array<{ weight_lb: number; moisture_label: MoistureLabelValue }>;
+  farmer_address: string;
+  farmer_phone: string;
+} | null> {
   const record = purchasesDao.getPurchase(db, purchaseId);
   if (!record) return null;
   const farmer = farmersDao.getFarmer(db, record.snapshot.farmer_id);
@@ -104,6 +109,8 @@ async function loadPurchaseRecord(
       rice_type_name: riceType ? riceType.name : '',
     },
     bags: record.bags,
+    farmer_address: farmer ? farmer.address : '',
+    farmer_phone: farmer ? farmer.phone : '',
   };
 }
 
@@ -167,7 +174,7 @@ export async function generateVoucherPdf(
     date: datePart,
     purchase_time: s.created_at ? formatTime12Short(s.created_at) : '',
     generated_at: generatedAt,
-    farmer: { name: s.farmer_name, address: '', phone: '' },
+    farmer: { name: s.farmer_name, address: rec.farmer_address, phone: rec.farmer_phone },
     rice_type_name: s.rice_type_name,
     price_per_tin: s.price_per_tin,
     price_100_tin: s.price_100_tin,
@@ -552,7 +559,7 @@ export async function generateFarmerReportPdf(
         phone: getCompanyPhone(db),
         footer_text: getCompanyFooterText(db),
       },
-      farmer: { name: farmer.name, address: '', phone: '' },
+      farmer: { name: farmer.name, address: farmer.address, phone: farmer.phone },
       period_label: year != null ? String(year) : 'all_time',
       yearly_summary: { record_count: 0, total_pounds: 0, total_tins: 0, total_amount: 0 },
       paddy_types: [],
@@ -621,7 +628,7 @@ export async function generateFarmerReportPdf(
       phone: getCompanyPhone(db),
       footer_text: getCompanyFooterText(db),
     },
-    farmer: { name: farmer.name, address: '', phone: '' },
+    farmer: { name: farmer.name, address: farmer.address, phone: farmer.phone },
     period_label: year != null ? String(year) : 'all_time',
     yearly_summary,
     paddy_types,
