@@ -9,7 +9,7 @@
  *    surfaces as a throw, never as a fabricated authorized state and never as
  *    the web fallback's "unsupported".
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Control the platform string returned by @capacitor/core's getPlatform().
 const platformMock = vi.hoisted(() => ({ platform: 'web' }))
@@ -60,6 +60,50 @@ describe('isNativePlatform', () => {
     platformMock.platform = 'ios'
     expect(isNativePlatform()).toBe(true)
     platformMock.platform = 'web'
+    expect(isNativePlatform()).toBe(false)
+  })
+})
+
+describe('isNativePlatform — OEM WebView fail-closed hole (Oppo A78)', () => {
+  const originalUa = window.navigator.userAgent
+  const androidUa =
+    'Mozilla/5.0 (Linux; Android 13; CPH2471) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+
+  afterEach(() => {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      value: originalUa,
+      configurable: true,
+    })
+    // Don't leak call history/implementations into the other describes.
+    nativeMock.getStatus.mockReset()
+  })
+
+  function setUa(ua: string): void {
+    Object.defineProperty(window.navigator, 'userAgent', { value: ua, configurable: true })
+  }
+
+  it('an Android UA with platform "web" (bridge failed to inject) is treated NATIVE', () => {
+    platformMock.platform = 'web'
+    setUa(androidUa)
+    // The web fallback (supported:false → unsupported → NO gate) must be
+    // unreachable on a real Android device.
+    expect(isNativePlatform()).toBe(true)
+  })
+
+  it('on such a device getStatus FAILS CLOSED (throws) — never the web "unsupported"', async () => {
+    platformMock.platform = 'web'
+    setUa(androidUa)
+    // No real bridge on such a device: the plugin call FAILS. The adapter must
+    // surface that failure (fail closed → unauthorized → gate) — it must never
+    // return the sanctioned web status { supported:false } which would unlock
+    // the whole app.
+    nativeMock.getStatus.mockRejectedValue(new Error('DeviceAuth bridge not available'))
+    await expect(capacitorDeviceAuth.getStatus()).rejects.toThrow('DeviceAuth bridge not available')
+  })
+
+  it('a desktop/web UA keeps the sanctioned web fallback', () => {
+    platformMock.platform = 'web'
+    setUa('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
     expect(isNativePlatform()).toBe(false)
   })
 })

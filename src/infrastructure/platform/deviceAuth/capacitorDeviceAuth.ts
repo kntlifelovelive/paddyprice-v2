@@ -73,7 +73,23 @@ const NativeDeviceAuth: DeviceAuthPluginInterface = {
 
 /** True when running inside a native (Capacitor Android) container. */
 export function isNativePlatform(): boolean {
-  return Capacitor.getPlatform() !== 'web'
+  if (Capacitor.getPlatform() !== 'web') return true
+  // FAIL CLOSED (OEM WebView hole): some Android devices (observed on an
+  // Oppo A78) fail to inject the Capacitor native bridge, so
+  // Capacitor.getPlatform() wrongly reports 'web' — which would route the
+  // adapter to the sanctioned web fallback (supported:false → `unsupported`
+  // → NO gate → the whole app unlocked without activation). An actual
+  // Android device must NEVER take the web fallback: detect the Android user
+  // agent and treat it as native, so a missing bridge can only ever fail the
+  // plugin calls (→ unauthorized → gate stays up), never unlock the app.
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  if (/Android/i.test(ua)) {
+    console.info(
+      '[DeviceAuth] platform reported "web" on an Android UA — failing closed to the native path',
+    )
+    return true
+  }
+  return false
 }
 
 /**
