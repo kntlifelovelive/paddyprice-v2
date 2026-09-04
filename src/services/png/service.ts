@@ -12,7 +12,8 @@
  * already-built template node that the PDF path consumes.
  */
 import { htmlToPng } from '@/services/pdf/render'
-import { buildHomeSummaryNode } from '@/services/pdf/templates'
+import { buildHomeSummaryNode, buildVoucherNode } from '@/services/pdf/templates'
+import { buildVoucherInput } from '@/services/pdf/service'
 import type { HomeSummaryPdfInput } from '@/types/pdf'
 import { createGallery, type GalleryPort } from '@/infrastructure/platform/gallery'
 import type { SavedFile } from '@/types/storage'
@@ -60,6 +61,29 @@ export async function exportHomeSummaryPng(
   const totalPages = pages.length || 1
   for (let i = 0; i < pages.length; i += 1) {
     const saved = await gallery.savePng(pngFileName(input.file_tag, i + 1, totalPages), pages[i])
+    files.push(saved)
+  }
+  return { files, pageCount: pages.length }
+}
+/**
+ * Render a customer's purchase voucher to PNG (using the SAME node the PDF
+ * voucher renders) and save each page to the device gallery. The PNG is
+ * pixel-identical to the PDF voucher because both share the template node.
+ */
+export async function generateVoucherPng(
+  purchaseId: number,
+  gallery: GalleryPort = createGallery(),
+): Promise<PngExportResult> {
+  const input = await buildVoucherInput(purchaseId)
+  if (!input) throw new Error('Purchase not found')
+
+  const node = buildVoucherNode(input)
+  const pages = await htmlToPng(node)
+
+  const files: SavedFile[] = []
+  const totalPages = pages.length || 1
+  for (let i = 0; i < pages.length; i += 1) {
+    const saved = await gallery.savePng(pngFileName(input.purchase_no, i + 1, totalPages), pages[i])
     files.push(saved)
   }
   return { files, pageCount: pages.length }

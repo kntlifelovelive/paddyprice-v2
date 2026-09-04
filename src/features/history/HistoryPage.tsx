@@ -38,6 +38,7 @@ import {
   CredentialUnlockDialog,
   DeleteIcon,
   EditIcon,
+  GalleryIcon,
   LockIcon,
   PdfIcon,
   PlusIcon,
@@ -53,6 +54,7 @@ import {
   type CredentialAvailability,
 } from '@/services/security/credential-verify'
 import { generateBagWeightDetailsPdf, generateVoucherPdf } from '@/services/pdf/service'
+import { generateVoucherPng } from '@/services/png/service'
 import { printerService } from '@/services/print/printerService'
 import type { PrintReceipt } from '@/types/print'
 
@@ -239,6 +241,24 @@ export function HistoryPage() {
       setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
     } catch (err) {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PDF failed' })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handlePng(purchaseId: number): Promise<void> {
+    setBusyId(purchaseId)
+    try {
+      const result = await generateVoucherPng(purchaseId)
+      setFlash({
+        kind: 'ok',
+        text: t({
+          my: `PNG ထုတ်ပြီးပါပြီ (${result.pageCount} မျက်နှာ)`,
+          en: `PNG exported (${result.pageCount} page${result.pageCount > 1 ? 's' : ''})`,
+        }),
+      })
+    } catch (err) {
+      setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PNG failed' })
     } finally {
       setBusyId(null)
     }
@@ -529,6 +549,16 @@ export function HistoryPage() {
                               className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
                             >
                               {busyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { void handlePng(s.id) }}
+                              disabled={busyId === s.id}
+                              title={t({ my: 'PNG', en: 'PNG' })}
+                              aria-label={t({ my: 'PNG ထုတ်မည်', en: 'Export PNG' })}
+                              className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
+                            >
+                              <GalleryIcon size="h-4 w-4" />
                             </button>
                             <button
                               type="button"

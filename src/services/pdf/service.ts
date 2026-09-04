@@ -132,15 +132,14 @@ async function savePdf(
 }
 
 /**
- * Voucher report generation.
+ * Build the voucher report input for a purchase — the SAME data the PDF
+ * voucher renders. Shared by PDF and PNG export so both outputs are built
+ * from one source of truth. Returns null when the purchase is not found.
  */
-export async function generateVoucherPdf(
-  purchaseId: number,
-  storage?: StoragePort,
-): Promise<PdfArtifact> {
+export async function buildVoucherInput(purchaseId: number): Promise<VoucherReportInput | null> {
   const db = getDatabase();
   const rec = await loadPurchaseRecord(db, purchaseId);
-  if (!rec) throw new Error('Purchase not found');
+  if (!rec) return null;
 
   const s = rec.snapshot;
   const company = {
@@ -168,7 +167,7 @@ export async function generateVoucherPdf(
   // (reference behavior). Output data only; no calculation change.
   const generatedAt = new Date().toISOString();
 
-  const input: VoucherReportInput = {
+  return {
     company,
     purchase_no: s.purchase_no,
     date: datePart,
@@ -192,10 +191,21 @@ export async function generateVoucherPdf(
     remarks: '',
     finalized: s.finalized,
   };
+}
+
+/**
+ * Voucher report generation.
+ */
+export async function generateVoucherPdf(
+  purchaseId: number,
+  storage?: StoragePort,
+): Promise<PdfArtifact> {
+  const input = await buildVoucherInput(purchaseId);
+  if (!input) throw new Error('Purchase not found');
 
   const html = buildVoucherNode(input);
   const pdfBytes = await htmlToPdf(html);
-  const relativePath = `voucher/${s.purchase_no}.pdf`;
+  const relativePath = `voucher/${input.purchase_no}.pdf`;
   return savePdf(storage ?? createPdfStorage(), relativePath, pdfBytes);
 }
 
