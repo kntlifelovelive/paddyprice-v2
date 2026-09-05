@@ -3,3 +3,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Android-style select/choice UI: square corners (border-radius = 0) for all select/dropdown popup containers. */
+select,
+select option,
+select::-ms-expand,
+select::-webkit-listbox,
+select::-webkit-dropdown-menu,
+select::-webkit-inner-spin-button,
+select::-webkit-outer-spin-button,
+select::-webkit-search-cancel-button,
+select::-webkit-search-decoration,
+select::-webkit-search-results-button,
+select::-webkit-search-results-decoration {
+  border-radius: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
