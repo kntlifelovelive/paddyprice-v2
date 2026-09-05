@@ -124,14 +124,17 @@ async function seedBagWeightPurchase(date = '2026-09-01'): Promise<{ farmer: { i
 describe('generateVoucherPng', () => {
   afterAll(() => closeTestDatabase())
 
-  it('saves one PNG per page using the purchase_no as filename tag', async () => {
+  it('saves one PNG per page using PSO + farmer_id + date + sequence + customer_name as filename', async () => {
     const { id, purchase_no } = await seedPurchase()
     const { gallery, saved } = captureGallery()
     const result = await generateVoucherPng(id, gallery)
     expect(result.pageCount).toBe(2)          // stub returns 2 pages
     expect(saved).toHaveLength(2)
-    expect(saved[0].name).toBe(`paddyprice_report_${purchase_no}_page1.png`)
-    expect(saved[1].name).toBe(`paddyprice_report_${purchase_no}_page2.png`)
+    // New filename format: PSO{farmer_id}-{date}-{sequence}-{customer_name}
+    // Example: PSO1-2026-09-01-0001-Ko-Aung
+    const expectedBase = `PSO1-2026-09-01-${purchase_no.split('-')[2]}-Ko-Aung`
+    expect(saved[0].name).toBe(`${expectedBase}_page1.png`)
+    expect(saved[1].name).toBe(`${expectedBase}_page2.png`)
   })
 
   it('throws when the purchase does not exist', async () => {
@@ -144,13 +147,14 @@ describe('generateVoucherPng', () => {
 describe('generateBagWeightDetailsPng', () => {
   afterAll(() => closeTestDatabase())
 
-  it('saves PNGs with PSO + Customer Name filename tag', async () => {
+  it('saves PNGs with PSO + farmer_id + 001 + customer_name filename', async () => {
     const { farmer } = await seedBagWeightPurchase()
     const { gallery, saved } = captureGallery()
     const result = await generateBagWeightDetailsPng(farmer.id, farmer.name, gallery)
     expect(result.pageCount).toBe(2)          // stub returns 2 pages
     expect(saved).toHaveLength(2)
-    const expectedBase = 'PSO1_Ko-Aung'       // PSO + farmer ID + sanitized name
+    // New filename format: PSO{farmer_id}-001-{customer_name}
+    const expectedBase = `PSO${farmer.id}-001-Ko-Aung`
     expect(saved[0].name).toBe(`${expectedBase}_page1.png`)
     expect(saved[1].name).toBe(`${expectedBase}_page2.png`)
   })

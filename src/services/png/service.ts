@@ -19,6 +19,7 @@ import { createGallery, type GalleryPort } from '@/infrastructure/platform/galle
 import type { SavedFile } from '@/types/storage'
 import { getDatabase } from '@/infrastructure/db/connection'
 import * as loadSettings from '@/services/settings'
+import * as purchasesDao from '@/infrastructure/db/dao/purchases'
 
 /** Result of exporting one report to PNG: the saved gallery files. */
 export interface PngExportResult {
@@ -85,7 +86,7 @@ function sanitizeFileName(s: string): string {
  * The PNG is visually equivalent to the PDF because both share `buildBagWeightInput`
  * + `buildBagWeightNode`.
  *
- * Filename: `PSO{farmerId}_{sanitizedFarmerName}.png`
+ * Filename: `PSO{farmerId}-001-{customer_name}.png`
  */
 export async function generateBagWeightDetailsPng(
   farmerId: number,
@@ -96,7 +97,7 @@ export async function generateBagWeightDetailsPng(
   const node = buildBagWeightNode(input)
   const pages = await htmlToPng(node)
 
-  const baseName = sanitizeFileName(`PSO${farmerId}_${farmerName}`)
+  const baseName = sanitizeFileName(`PSO${farmerId}-001-${farmerName}`)
   const files: SavedFile[] = []
   const totalPages = pages.length || 1
   for (let i = 0; i < pages.length; i += 1) {
@@ -110,9 +111,21 @@ export async function generateBagWeightDetailsPng(
 }
 
 /**
+ * Extract the sequence number from a purchase number.
+ * Purchase number format: PSO-YYYYMM-NNNN (e.g., "PSO-202609-0001")
+ * Returns the sequence part (e.g., "0001")
+ */
+function extractSequenceFromPurchaseNo(purchaseNo: string): string {
+  const parts = purchaseNo.split('-')
+  return parts[parts.length - 1] || '0001'
+}
+
+/**
  * Render a customer's purchase voucher to PNG (using the SAME node the PDF
  * voucher renders) and save each page to the device gallery. The PNG is
  * pixel-identical to the PDF voucher because both share the template node.
+ *
+ * Filename: `PSO{farmer_id}-{date}-{sequence}-{customer_name}.png`
  */
 export async function generateVoucherPng(
   purchaseId: number,
@@ -124,10 +137,24 @@ export async function generateVoucherPng(
   const node = buildVoucherNode(input)
   const pages = await htmlToPng(node)
 
+  // Get farmer_id from the purchase record for the filename
+  const db = getDatabase()
+  const record = purchasesDao.getPurchase(db, purchaseId)
+  const farmerId = record ? record.snapshot.farmer_id : 0
+
+  // Extract sequence number from purchase number (e.g., "PSO-202609-0001" -> "0001")
+  const sequence = extractSequenceFromPurchaseNo(input.purchase_no)
+
+  const baseName = sanitizeFileName(
+    `PSO${farmerId}-${input.date}-${sequence}-${input.farmer.name}`,
+  )
   const files: SavedFile[] = []
   const totalPages = pages.length || 1
   for (let i = 0; i < pages.length; i += 1) {
-    const saved = await gallery.savePng(pngFileName(input.purchase_no, i + 1, totalPages), pages[i])
+    const fileName = totalPages > 1
+      ? `${baseName}_page${i + 1}.png`
+      : `${baseName}.png`
+    const saved = await gallery.savePng(fileName, pages[i])
     files.push(saved)
   }
   return { files, pageCount: pages.length }
