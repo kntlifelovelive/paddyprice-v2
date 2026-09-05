@@ -212,4 +212,63 @@ export function createPdfStorage(): StoragePort {
   return isNativePlatform() ? capacitorPdfStorage : browserDownloadStorage
 }
 
+/**
+ * Write a backup file on Android via `@capacitor/filesystem` into the app's
+ * Documents directory (durable, user-visible). Unlike PDF storage, backup
+ * files are NOT shared — they are saved silently for later restore.
+ * Returns the `file://` URI of the persisted Documents copy.
+ */
+async function saveAndroidBackup(relativePath: string, data: Uint8Array | Blob): Promise<SavedFile> {
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
+  const filename = relativePath.split('/').map(sanitizeSegment).join('/')
+  const cleanPath = filename.replace(/^\/+/, '')
+
+  // Create parent directory if needed
+  const dir = cleanPath.substring(0, cleanPath.lastIndexOf('/'))
+  if (dir) {
+    try {
+      await Filesystem.mkdir({ path: dir, directory: Directory.Documents, recursive: true })
+    } catch {
+      // Directory already exists.
+    }
+  }
+
+  const base64 = data instanceof Blob ? await blobToBase64(data) : pdfBytesToBase64(data)
+  const docWrite = await Filesystem.writeFile({
+    path: cleanPath,
+    directory: Directory.Documents,
+    data: base64,
+    recursive: true,
+  })
+
+  return { path: docWrite.uri }
+}
+
+/**
+ * Android (Capacitor) backup StoragePort — writes to Documents without sharing.
+ * Only ever constructed on a native platform.
+ */
+const capacitorBackupStorage: StoragePort = {
+  async saveBinaryFile(relativePath: string, data: Uint8Array | Blob): Promise<SavedFile> {
+    return saveAndroidBackup(relativePath, data)
+  },
+  async saveTextFile(relativePath: string, content: string, _mime: string): Promise<SavedFile> {
+    const blob = new Blob([content], { type: _mime || 'text/plain' })
+    return saveAndroidBackup(relativePath, blob)
+  },
+  async pickAndReadFile(_accept: string): Promise<Uint8Array> {
+    throw new Error('pickAndReadFile is not implemented in the Capacitor backup adapter')
+  },
+}
+
+/**
+ * Pick the correct StoragePort for backup files on the CURRENT platform:
+ *  - native (Capacitor / Android): writes to Documents without sharing;
+ *  - web/desktop: the existing browser-download adapter (unchanged behavior).
+ * The backup service consumes this through the StoragePort contract.
+ */
+export function createBackupStorage(): StoragePort {
+  return isNativePlatform() ? capacitorBackupStorage : browserDownloadStorage
+}
+
 export type { StoragePort, SavedFile }

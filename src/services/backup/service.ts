@@ -19,7 +19,7 @@
 import type { Database } from 'sql.js'
 import { exportDatabaseBytes, isSqliteBytes, probeDatabase, reopenDatabase } from '@/infrastructure/db/connection'
 import { flushSave } from '@/infrastructure/db/persistence'
-import { createPdfStorage } from '@/infrastructure/platform/fs'
+import { createBackupStorage } from '@/infrastructure/platform/fs'
 import { encryptBackup, decryptBackup, BACKUP_FORMAT_VERSION } from './crypto'
 
 export const BACKUP_EXTENSION = 'p2bak'
@@ -45,13 +45,13 @@ export async function createBackupEnvelope(_db: Database, password: string): Pro
 
 /**
  * Create + save a backup file. Returns the saved path. On web this triggers
- * a download; on Android the file is written to Documents and offered via
- * the native share sheet (existing StoragePort behavior — no new platform code).
+ * a download; on Android the file is written to Documents (existing
+ * StoragePort behavior — no new platform code).
  */
 export async function createBackupFile(db: Database, password: string): Promise<BackupResult> {
   const envelope = await createBackupEnvelope(db, password)
   const createdAt = new Date().toISOString()
-  const storage = createPdfStorage()
+  const storage = createBackupStorage()
   const filename = `paddy_backup_${createdAt.slice(0, 10)}.${BACKUP_EXTENSION}`
   const saved = await storage.saveBinaryFile(`${BACKUP_DIR}/${filename}`, envelope)
   return { path: saved.path, createdAt }
