@@ -45,11 +45,22 @@ function loadEnglishSettings(): void {
   useSettingsStore.getState().load(settings)
 }
 
-/** Set a <select>'s value the way a user (or Android WebView) would. */
-async function choose(select: HTMLSelectElement, value: string): Promise<void> {
+/**
+ * Select an option from a custom Select component.
+ * 1. Click the select trigger (button[role="combobox"]) to open the dropdown
+ * 2. Click the desired option (li[role="option"]) in the dropdown
+ */
+async function choose(selectTrigger: HTMLElement, value: string): Promise<void> {
   await act(async () => {
-    select.value = value
-    select.dispatchEvent(new Event('change', { bubbles: true }))
+    // Open the dropdown
+    selectTrigger.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  })
+  // Find the option in the now-open dropdown
+  const options = document.querySelectorAll<HTMLElement>('li[role="option"]')
+  const target = [...options].find((opt) => opt.getAttribute('data-value') === value)
+  expect(target).toBeDefined()
+  await act(async () => {
+    target!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   })
 }
 
@@ -78,7 +89,7 @@ describe('Moisture User Config — edit / save / reload / persistence', () => {
 
     const r = await rendermount(<MoisturePage />)
     try {
-      const selects = r.container.querySelectorAll<HTMLSelectElement>('select')
+      const selects = r.container.querySelectorAll<HTMLElement>('button[role="combobox"]')
       expect(selects.length).toBe(3)
       await choose(selects[0], String(farmer.id))
       await choose(selects[1], String(type.id))
@@ -121,7 +132,7 @@ describe('Moisture User Config — edit / save / reload / persistence', () => {
 
     // First mount: create the config via the UI form.
     const r = await rendermount(<MoisturePage />)
-    const selects = r.container.querySelectorAll<HTMLSelectElement>('select')
+    const selects = r.container.querySelectorAll<HTMLElement>('button[role="combobox"]')
     await choose(selects[0], String(farmer.id))
     await choose(selects[1], String(type.id))
     await clickButton(r.container.querySelector<HTMLButtonElement>('button[role="switch"]')!)
@@ -160,7 +171,7 @@ describe('Moisture User Config — edit / save / reload / persistence', () => {
     const r = await rendermount(<MoisturePage />)
     try {
       // Seed via the UI: Active / label 17.
-      const selects = r.container.querySelectorAll<HTMLSelectElement>('select')
+      const selects = r.container.querySelectorAll<HTMLElement>('button[role="combobox"]')
       await choose(selects[0], String(farmer.id))
       await choose(selects[1], String(type.id))
       await clickButton(r.container.querySelector<HTMLButtonElement>('button[role="switch"]')!)

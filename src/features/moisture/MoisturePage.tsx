@@ -27,7 +27,7 @@ import {
 import type { MoistureConfig } from '@/types'
 import { formatDateDMY } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, Text, ToggleSwitch } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text, ToggleSwitch, Select } from '@/shared/ui'
 
 function labelText(label: MoistureLabelValue): string {
   return label == null ? 'None' : String(label)
@@ -174,53 +174,43 @@ export function MoisturePage(): JSX.Element {
         <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အမည်', en: 'Name' })}</Text>
-            <select
-              value={farmerId ?? ''}
-              onChange={(e) => setFarmerId(e.target.value === '' ? null : Number(e.target.value))}
+            <Select
+              value={String(farmerId ?? '')}
+              onChange={(value) => setFarmerId(value === '' ? null : Number(value))}
               className="rounded border border-border bg-background px-2 py-2"
-            >
-              <option value="">{t({ my: 'ရွေးပါ…', en: 'Select…' })}</option>
-              {farmerOptions.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'ရွေးပါ…', en: 'Select…' }) },
+                ...farmerOptions.map((f) => ({ value: String(f.id), label: f.name })),
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-            <select
-              value={riceTypeId ?? ''}
-              onChange={(e) => setRiceTypeId(e.target.value === '' ? null : Number(e.target.value))}
+            <Select
+              value={String(riceTypeId ?? '')}
+              onChange={(value) => setRiceTypeId(value === '' ? null : Number(value))}
               className="rounded border border-border bg-background px-2 py-2"
-            >
-              <option value="">{t({ my: 'မရွေးပါ (လယ်သမားတစ်ယောက်ချင်း)', en: 'All Types' })}</option>
-              {riceTypeOptions.map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'မရွေးပါ (လယ်သမားတစ်ယောက်ချင်း)', en: 'All Types' }) },
+                ...riceTypeOptions.map((rt) => ({ value: String(rt.id), label: rt.name })),
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'အစိုဓာတ်', en: 'Label' })}</Text>
-            <select
-              value={label ?? ''}
+            <Select
+              value={String(label ?? '')}
               disabled={status !== 'active'}
-              onChange={(e) =>
-                setLabel(
-                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
-                )
-              }
+              onChange={(value) => setLabel(value === '' ? null : (Number(value) as MoistureLabel))}
               className="rounded border border-border bg-background px-2 py-2 disabled:opacity-50"
-            >
-              <option value="">{t({ my: 'မရှိ', en: 'None' })}</option>
-              {MOISTURE_LABEL_OPTIONS.map((opt: MoistureLabel) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'မရှိ', en: 'None' }) },
+                ...MOISTURE_LABEL_OPTIONS.map((opt: MoistureLabel) => ({
+                  value: String(opt),
+                  label: String(opt),
+                })),
+              ]}
+            />
           </label>
           {/* Active control — same structure as the select fields above
               (label on top, control underneath) so the toggle sits level with

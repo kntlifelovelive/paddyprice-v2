@@ -42,7 +42,7 @@ import {
 import { settingsService } from '@/services/settings'
 import { formatMMK, formatNumber, formatTins, todayISO } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { DeleteIcon, EditIcon, Text, cn } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Text, cn, Select } from '@/shared/ui'
 
 interface BagDisplay {
   seq: number
@@ -445,20 +445,15 @@ export function NewPurchasePage(): JSX.Element {
         <section className="grid gap-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">
             <Text role="secondary">{t({ my: 'အမည်', en: 'Name' })}</Text>
-            <select
+            <Select
               className="rounded border border-border bg-background px-2 py-1.5"
-              value={form.farmerId ?? ''}
-              onChange={(e) =>
-                handleSetHeader('farmerId', e.target.value === '' ? null : Number(e.target.value))
-              }
-            >
-              <option value="">{t({ my: 'ရွေးပါ…', en: 'Select…' })}</option>
-              {farmers.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
+              value={String(form.farmerId ?? '')}
+              onChange={(value) => handleSetHeader('farmerId', value === '' ? null : Number(value))}
+              options={[
+                { value: '', label: t({ my: 'ရွေးပါ…', en: 'Select…' }) },
+                ...farmers.map((f) => ({ value: String(f.id), label: f.name })),
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <Text role="secondary">{t({ my: 'ရက်စွဲ', en: 'Date' })}</Text>
@@ -471,41 +466,36 @@ export function NewPurchasePage(): JSX.Element {
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <Text role="secondary">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-            <select
+            <Select
               className="rounded border border-border bg-background px-2 py-1.5"
-              value={form.riceTypeId ?? ''}
-              onChange={(e) =>
-                handleSetHeader('riceTypeId', e.target.value === '' ? null : Number(e.target.value))
-              }
-            >
-              <option value="">{t({ my: 'ရွေးပါ…', en: 'Select…' })}</option>
-              {riceTypes.map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.name}
-                </option>
-              ))}
-            </select>
+              value={String(form.riceTypeId ?? '')}
+              onChange={(value) => handleSetHeader('riceTypeId', value === '' ? null : Number(value))}
+              options={[
+                { value: '', label: t({ my: 'ရွေးပါ…', en: 'Select…' }) },
+                ...riceTypes.map((rt) => ({ value: String(rt.id), label: rt.name })),
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <Text role="secondary">{t({ my: 'အစိုဓာတ်', en: 'Moisture Label' })}</Text>
-            <select
+            <Select
               data-testid="new-purchase-moisture"
               className="rounded border border-border bg-background px-2 py-1.5"
-              value={form.defaultMoisture ?? ''}
-              onChange={(e) =>
+              value={String(form.defaultMoisture ?? '')}
+              onChange={(value) =>
                 handleSetHeader(
                   'defaultMoisture',
-                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
+                  value === '' ? null : (Number(value) as MoistureLabel),
                 )
               }
-            >
-              <option value="">{t({ my: 'မပါ (Default)', en: 'None (No Moisture)' })}</option>
-              {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'မပါ (Default)', en: 'None (No Moisture)' }) },
+                ...MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => ({
+                  value: String(label),
+                  label: String(label),
+                })),
+              ]}
+            />
             <Text role="muted" className="text-xs">
               {t({
                 my: 'အသစ်ထည့်မည့် အလေးချိန်အတန်းများအားလုံးတွင် ဤအညွှန်း ပါဝင်မည်။',
@@ -572,24 +562,24 @@ export function NewPurchasePage(): JSX.Element {
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
           <label className="flex items-center gap-2">
             <Text role="secondary">{t({ my: 'အစိုဓာတ် (ဝယ်ယူမှုအဆင့်)', en: 'Moisture Label (purchase)' })}</Text>
-            <select
+            <Select
               data-testid="purchase-moisture"
               className="rounded border border-border bg-background px-2 py-1"
-              value={form.defaultMoisture ?? ''}
+              value={String(form.defaultMoisture ?? '')}
               disabled={form.finalized}
-              onChange={(e) =>
+              onChange={(value) =>
                 handleSetPurchaseMoisture(
-                  e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
+                  value === '' ? null : (Number(value) as MoistureLabel),
                 )
               }
-            >
-              <option value="">{t({ my: 'မပါ (Default)', en: 'None (No Moisture)' })}</option>
-              {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'မပါ (Default)', en: 'None (No Moisture)' }) },
+                ...MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => ({
+                  value: String(label),
+                  label: String(label),
+                })),
+              ]}
+            />
           </label>
           <Text role="muted" className="text-xs">
             {t({ my: 'အသစ်ထည့်သော အတန်းများတွင်သာ သက်ရောက်သည်။', en: 'Applies to newly inserted rows only.' })}
@@ -696,25 +686,23 @@ export function NewPurchasePage(): JSX.Element {
                     </td>
                     <td className="px-2 py-1 text-right tabular-nums">
                       {editingSeq === bag.seq ? (
-                        <select
-                          value={bag.moisture_label ?? ''}
-                          onChange={(e) =>
+                        <Select
+                          value={String(bag.moisture_label ?? '')}
+                          onChange={(value) =>
                             handleEditMoisture(
                               bag.seq,
-                              e.target.value === '' ? null : (Number(e.target.value) as MoistureLabel),
+                              value === '' ? null : (Number(value) as MoistureLabel),
                             )
                           }
-                          onBlur={() => setEditingSeq(null)}
-                          autoFocus
                           className="rounded border border-border bg-background px-1 py-0.5 text-xs"
-                        >
-                          <option value="">{t({ my: 'မရှိ', en: 'None' })}</option>
-                          {MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => (
-                            <option key={label} value={label}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: '', label: t({ my: 'မရှိ', en: 'None' }) },
+                            ...MOISTURE_LABEL_OPTIONS.map((label: MoistureLabel) => ({
+                              value: String(label),
+                              label: String(label),
+                            })),
+                          ]}
+                        />
                       ) : (
                         <button
                           type="button"

@@ -37,7 +37,7 @@ import {
   todayISO,
 } from '@/shared/format'
 import { useT } from '@/shared/hooks'
-import { GalleryIcon, PdfIcon, PrintIcon, Text } from '@/shared/ui'
+import { GalleryIcon, PdfIcon, PrintIcon, Select, Text } from '@/shared/ui'
 import type { PrintReceipt } from '@/types/print'
 import type { RiceType } from '@/types'
 
@@ -549,19 +549,16 @@ export function DashboardPage(): JSX.Element {
             </button>
           ))}
         </div>
-        <select
-          value={riceTypeId ?? ''}
-          onChange={(e) => setRiceTypeId(e.target.value === '' ? null : Number(e.target.value))}
+        <Select
+          value={String(riceTypeId ?? '')}
+          onChange={(value) => setRiceTypeId(value === '' ? null : Number(value))}
           aria-label={t({ my: 'စပါးအမျိုးအစား ရွေးချယ်ရန်', en: 'Filter by paddy type' })}
           className="rounded-lg border border-border bg-background px-2 py-2 text-sm"
-        >
-          <option value="">{t({ my: 'အမျိုးအစား အားလုံး', en: 'All Paddy Types' })}</option>
-          {riceTypes.map((rt) => (
-            <option key={rt.id} value={rt.id}>
-              {rt.name}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: '', label: t({ my: 'အမျိုးအစား အားလုံး', en: 'All Paddy Types' }) },
+            ...riceTypes.map((rt) => ({ value: String(rt.id), label: rt.name })),
+          ]}
+        />
       </div>
 
       {/* Export / print / PNG — reference Home toolbar (filter-aware; disabled when no data). */}

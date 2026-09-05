@@ -43,6 +43,7 @@ import {
   PdfIcon,
   PlusIcon,
   PrintIcon,
+  Select,
   SpinnerIcon,
   Text,
   UnlockIcon,
@@ -379,37 +380,30 @@ export function HistoryPage() {
         </Text>
         <div className="flex flex-wrap items-center gap-2">
           {/* Customer filter — navigates to the per-farmer drilldown */}
-          <select
+          <Select
             className="rounded border border-border bg-background px-2 py-1.5 text-sm"
             value={farmerSelect}
             aria-label={t({ my: 'ဝယ်ယူသည့်သူ', en: 'Filter by customer' })}
-            onChange={(e) => {
-              const value = e.target.value
+            onChange={(value) => {
               setFarmerSelect(value)
               if (value !== '') navigate(`/history/${value}`)
             }}
-          >
-            <option value="">{t({ my: '— ဝယ်ယူသည့်သူ —', en: '— Customers —' })}</option>
-            {data.data.farmers.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: t({ my: '— ဝယ်ယူသည့်သူ —', en: '— Customers —' }) },
+              ...data.data.farmers.map((f) => ({ value: String(f.id), label: f.name })),
+            ]}
+          />
           {/* Paddy type filter — narrows the table and the Bag Weights PDF */}
-          <select
+          <Select
             className="rounded border border-border bg-background px-2 py-1.5 text-sm"
             value={paddyTypeFilter}
             aria-label={t({ my: 'စပါးအမျိုးအစား', en: 'Filter by paddy type' })}
-            onChange={(e) => setPaddyTypeFilter(e.target.value)}
-          >
-            <option value="">{t({ my: '— အမျိုးအစား အားလုံး —', en: '— All Paddy Types —' })}</option>
-            {data.data.riceTypes.map((rt) => (
-              <option key={rt.id} value={rt.id}>
-                {rt.name}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => setPaddyTypeFilter(value)}
+            options={[
+              { value: '', label: t({ my: '— အမျိုးအစား အားလုံး —', en: '— All Paddy Types —' }) },
+              ...data.data.riceTypes.map((rt) => ({ value: String(rt.id), label: rt.name })),
+            ]}
+          />
           {/* Bag Weights PDF — P2's existing bag-weights PDF service */}
           <button
             type="button"

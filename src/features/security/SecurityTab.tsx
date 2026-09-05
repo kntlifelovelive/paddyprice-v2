@@ -12,7 +12,7 @@
  * logged or stored; only PBKDF2 verifiers reach the settings table. */
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '@/shared/hooks'
-import { Text, LockIcon, ToggleSwitch } from '@/shared/ui'
+import { Text, LockIcon, ToggleSwitch, Select } from '@/shared/ui'
 import { ConfirmDialog } from '@/shared/ui'
 import { PatternPad } from '@/shared/ui'
 import { getDatabase } from '@/infrastructure/db'
@@ -328,18 +328,16 @@ export function SecurityTab({ t }: { t: ReturnType<typeof useT> }): JSX.Element 
         icon={<IconTimer />}
         title={t({ my: 'အလိုအလျောက် လော့ခ် အချိန်', en: 'Auto Lock Timeout' })}
         control={
-          <select
+          <Select
             aria-label={t({ my: 'အလိုအလျောက် လော့ခ် အချိန်', en: 'Auto Lock Timeout' })}
             value={config.timeout}
-            onChange={(e) => handleTimeoutChange(e.target.value)}
+            onChange={(value) => handleTimeoutChange(value)}
             className="rounded border border-border bg-background px-2 py-1 text-sm"
-          >
-            {AUTO_LOCK_TIMEOUTS.map((value) => (
-              <option key={value} value={value}>
-                {t(TIMEOUT_LABELS[value])}
-              </option>
-            ))}
-          </select>
+            options={AUTO_LOCK_TIMEOUTS.map((value) => ({
+              value,
+              label: t(TIMEOUT_LABELS[value]),
+            }))}
+          />
         }
       />
 

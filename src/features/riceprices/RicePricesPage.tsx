@@ -25,7 +25,7 @@ import { formatMMK, formatNumber } from '@/shared/format'
 import type { RicePrice, RiceType } from '@/types'
 import { useT } from '@/shared/hooks'
 import { creationOrderNos } from '@/shared/creationOrder'
-import { DeleteIcon, EditIcon, Text } from '@/shared/ui'
+import { DeleteIcon, EditIcon, Select, Text } from '@/shared/ui'
 
 function priceFromShorthand(
   shorthand: string,
@@ -163,18 +163,15 @@ export function RicePricesPage(): JSX.Element {
           </label>
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'စပါးအမျိုးအစား', en: 'Paddy Type' })}</Text>
-            <select
-              value={riceTypeId ?? ''}
-              onChange={(e) => setRiceTypeId(e.target.value === '' ? null : Number(e.target.value))}
+            <Select
+              value={String(riceTypeId ?? '')}
+              onChange={(value) => setRiceTypeId(value === '' ? null : Number(value))}
               className="rounded border border-border bg-background px-2 py-1.5"
-            >
-              <option value="">{t({ my: 'ရွေးပါ…', en: 'Select…' })}</option>
-              {riceTypes.map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: t({ my: 'ရွေးပါ…', en: 'Select…' }) },
+                ...riceTypes.map((rt) => ({ value: String(rt.id), label: rt.name })),
+              ]}
+            />
           </label>
           <label className="flex flex-col gap-1">
             <Text role="secondary">{t({ my: 'ဈေးနှုန်း (A/B)', en: 'Price (A/B)' })}</Text>
