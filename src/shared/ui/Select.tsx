@@ -43,8 +43,10 @@ export function Select({
       }
     }
     if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
+      // Use click instead of mousedown to fix Android WebView issue where
+      // mousedown fires before the option's click event
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
     }
   }, [isOpen])
 

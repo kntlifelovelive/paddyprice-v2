@@ -101,9 +101,10 @@ export default function Layout() {
           <NavLink
             to="/"
             end
-            className="shrink-0 rounded-lg px-1 py-1 text-lg font-bold text-content-primary"
+            className="shrink-0 rounded-lg px-1 py-1 text-base font-bold text-content-primary sm:text-lg"
           >
-            Paddy
+            <span className="hidden sm:inline">Love and wisdom are the greatest treasures of life.</span>
+            <span className="sm:hidden">Love &amp; Wisdom</span>
           </NavLink>
 
           {/* Hamburger — narrow screens only */}
