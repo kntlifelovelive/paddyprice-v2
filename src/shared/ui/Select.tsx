@@ -65,6 +65,10 @@ export function Select({
 
   const selectedOption = options.find((opt) => opt.value === value)
 
+  // The "Select…" placeholder is display-only: it must NOT appear as a
+  // selectable option in the dropdown list (Android selection behavior spec).
+  const selectableOptions = options.filter((option) => !isPlaceholderOption(option))
+
   function handleSelect(optionValue: string) {
     onChange(optionValue)
     setIsOpen(false)
@@ -116,23 +120,34 @@ export function Select({
           aria-label={ariaLabel}
           className="absolute z-50 mt-1 max-h-60 w-full overflow-auto border border-border bg-background shadow-lg"
         >
-          {options.map((option) => (
-            <li
+          {/* Options are real <button>s (not <li>): Android WebView fires
+              click reliably on interactive elements, so a single tap selects
+              the option immediately (no second tap needed). */}
+          {selectableOptions.map((option) => (
+            <button
               key={option.value}
+              type="button"
               role="option"
               aria-selected={option.value === value}
               data-value={option.value}
               onClick={() => handleSelect(option.value)}
               className={cn(
-                'cursor-pointer px-2 py-2 hover:bg-surface-hover',
+                'block w-full cursor-pointer px-2 py-2 text-left hover:bg-surface-hover',
                 option.value === value && 'bg-surface-hover',
               )}
             >
               {option.label}
-            </li>
+            </button>
           ))}
         </ul>
       )}
     </div>
   )
+}
+
+/** Placeholder labels (Myanmar + English) — display-only, never selectable. */
+const PLACEHOLDER_LABELS: readonly string[] = ['Select…', 'ရွေးပါ…']
+
+function isPlaceholderOption(option: SelectOption): boolean {
+  return typeof option.label === 'string' && PLACEHOLDER_LABELS.includes(option.label)
 }

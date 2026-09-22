@@ -48,7 +48,7 @@ function loadEnglishSettings(): void {
 /**
  * Select an option from a custom Select component.
  * 1. Click the select trigger (button[role="combobox"]) to open the dropdown
- * 2. Click the desired option (li[role="option"]) in the dropdown
+ * 2. Click the desired option ([role="option"]) in the dropdown
  */
 async function choose(selectTrigger: HTMLElement, value: string): Promise<void> {
   await act(async () => {
@@ -56,7 +56,7 @@ async function choose(selectTrigger: HTMLElement, value: string): Promise<void> 
     selectTrigger.dispatchEvent(new MouseEvent('click', { bubbles: true }))
   })
   // Find the option in the now-open dropdown
-  const options = document.querySelectorAll<HTMLElement>('li[role="option"]')
+  const options = document.querySelectorAll<HTMLElement>('[role="option"]')
   const target = [...options].find((opt) => opt.getAttribute('data-value') === value)
   expect(target).toBeDefined()
   await act(async () => {
