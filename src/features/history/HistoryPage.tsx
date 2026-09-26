@@ -122,6 +122,10 @@ export function HistoryPage() {
   const t = useT()
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState<number | null>(null)
+  // Per-action busy ids so the PDF and PNG row icons each show their own
+  // loading state (busyId alone made the PDF icon spin for PNG exports).
+  const [pdfBusyId, setPdfBusyId] = useState<number | null>(null)
+  const [pngBusyId, setPngBusyId] = useState<number | null>(null)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Toast auto-dismisses after 3s (reference `show()` behavior). Fixes the
@@ -264,6 +268,7 @@ export function HistoryPage() {
 
   async function handlePdf(purchaseId: number): Promise<void> {
   setBusyId(purchaseId)
+    setPdfBusyId(purchaseId)
     try {
       await generateVoucherPdf(purchaseId)
       setFlash({ kind: 'ok', text: t({ my: 'PDF ထုတ်ပြီးပါပြီ', en: 'PDF generated' }) })
@@ -271,11 +276,13 @@ export function HistoryPage() {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PDF failed' })
     } finally {
       setBusyId(null)
+      setPdfBusyId(null)
     }
   }
 
   async function handlePng(purchaseId: number): Promise<void> {
     setBusyId(purchaseId)
+    setPngBusyId(purchaseId)
     try {
       const result = await generateVoucherPng(purchaseId)
       setFlash({
@@ -289,6 +296,7 @@ export function HistoryPage() {
       setFlash({ kind: 'err', text: err instanceof Error ? err.message : 'PNG failed' })
     } finally {
       setBusyId(null)
+      setPngBusyId(null)
     }
   }
 
@@ -584,7 +592,7 @@ export function HistoryPage() {
                               aria-label={t({ my: 'PDF ထုတ်မည်', en: 'Export PDF' })}
                               className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
                             >
-                              {busyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
+                              {pdfBusyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <PdfIcon size="h-4 w-4" />}
                             </button>
                             <button
                               type="button"
@@ -594,7 +602,7 @@ export function HistoryPage() {
                               aria-label={t({ my: 'PNG ထုတ်မည်', en: 'Export PNG' })}
                               className="rounded p-1 text-content-secondary hover:bg-surface-hover hover:text-content-primary disabled:opacity-50"
                             >
-                              <GalleryIcon size="h-4 w-4" />
+                              {pngBusyId === s.id ? <SpinnerIcon size="h-4 w-4 animate-spin" /> : <GalleryIcon size="h-4 w-4" />}
                             </button>
                             <button
                               type="button"
