@@ -72,6 +72,66 @@ public class GallerySavePlugin extends Plugin {
         }
     }
 
+    /**
+     * Save a PDF document (base64) into the public Downloads/Paddy folder.
+     *
+     * Modern Android (API 29+, scoped storage): inserts into
+     * MediaStore.Downloads under Download/Paddy — NO storage permission
+     * required. This is the scoped-storage-compatible replacement for the
+     * previous direct write into the public Documents directory, which
+     * fails with EACCES on Android 10+.
+     *
+     * Legacy Android (API 24–28): writes to the public Downloads/Paddy
+     * directory and triggers a media scan. Covered by the already-declared
+     * WRITE_EXTERNAL_STORAGE (maxSdkVersion=28) manifest permission.
+     *
+     * `relativePath` is the sanitized document relative path (e.g.
+     * "voucher/PSO1-20260926-0001-U Shwe.pdf"); the last segment becomes
+     * the display name and any preceding segments become sub-folders
+     * under Download/Paddy.
+     */
+    @PluginMethod
+    public void savePdf(PluginCall call) {
+        String relativePath = call.getString("relativePath");
+        String dataBase64 = call.getString("dataBase64");
+        if (relativePath == null || relativePath.isEmpty()) {
+            call.reject("relativePath is required");
+            return;
+        }
+        if (dataBase64 == null || dataBase64.isEmpty()) {
+            call.reject("dataBase64 is required");
+            return;
+        }
+        try {
+            byte[] bytes = Base64.decode(dataBase64, Base64.DEFAULT);
+            String[] parts = relativePath.split("/");
+            String fileName = parts[parts.length - 1];
+            if (!fileName.toLowerCase().endsWith(".pdf")) {
+                fileName = fileName + ".pdf";
+            }
+            StringBuilder subDir = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (!parts[i].isEmpty() && !".".equals(parts[i]) && !"..".equals(parts[i])) {
+                    if (subDir.length() > 0) {
+                        subDir.append('/');
+                    }
+                    subDir.append(parts[i]);
+                }
+            }
+            Uri uri;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                uri = savePdfModern(fileName, subDir.toString(), bytes);
+            } else {
+                uri = savePdfLegacy(fileName, subDir.toString(), bytes);
+            }
+            JSObject out = new JSObject();
+            out.put("path", uri != null ? uri.toString() : "");
+            call.resolve(out);
+        } catch (Exception e) {
+            call.reject("failed to save pdf: " + e.getMessage(), e);
+        }
+    }
+
     /** API 29+ — MediaStore insert under Pictures/Paddy (scoped storage, no permission). */
     private Uri saveModern(String fileName, Bitmap bitmap) throws Exception {
         if (!fileName.toLowerCase().endsWith(".png")) {
@@ -122,6 +182,60 @@ public class GallerySavePlugin extends Plugin {
                 getContext(),
                 new String[]{file.getAbsolutePath()},
                 new String[]{"image/png"},
+                null);
+        } catch (Exception ignored) {
+            // Media scan is best-effort; the file is already on disk.
+        }
+        return uri;
+    }
+
+    /** API 29+ — MediaStore.Downloads insert under Download/Paddy[/subdir] (scoped storage, no permission). */
+    private Uri savePdfModern(String fileName, String subDir, byte[] bytes) throws Exception {
+        String relativePath = Environment.DIRECTORY_DOWNLOADS + "/Paddy"
+            + (subDir.isEmpty() ? "" : "/" + subDir);
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+        values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+        values.put(MediaStore.Downloads.RELATIVE_PATH, relativePath);
+        values.put(MediaStore.Downloads.IS_PENDING, 1);
+
+        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        Uri item = getContext().getContentResolver().insert(collection, values);
+        if (item == null) {
+            throw new Exception("MediaStore insert returned null");
+        }
+        try (OutputStream out = getContext().getContentResolver().openOutputStream(item)) {
+            if (out == null) {
+                throw new Exception("could not open output stream");
+            }
+            out.write(bytes);
+            out.flush();
+        }
+        values.clear();
+        values.put(MediaStore.Downloads.IS_PENDING, 0);
+        getContext().getContentResolver().update(item, values, null, null);
+        return item;
+    }
+
+    /** API 24–28 — write to public Downloads/Paddy[/subdir] + media scan. */
+    private Uri savePdfLegacy(String fileName, String subDir, byte[] bytes) throws Exception {
+        File dir = new File(Environment.getExternalStoragePublicDirectory(
+            Environment.DIRECTORY_DOWNLOADS), "Paddy" + (subDir.isEmpty() ? "" : "/" + subDir));
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new Exception("could not create directory: " + dir.getAbsolutePath());
+        }
+        File file = new File(dir, fileName);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(bytes);
+            fos.flush();
+        }
+        // Trigger a media scan so Files/Docs apps show the new PDF immediately.
+        Uri uri = Uri.fromFile(file);
+        try {
+            android.media.MediaScannerConnection.scanFile(
+                getContext(),
+                new String[]{file.getAbsolutePath()},
+                new String[]{"application/pdf"},
                 null);
         } catch (Exception ignored) {
             // Media scan is best-effort; the file is already on disk.

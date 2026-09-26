@@ -22,10 +22,15 @@ import type { SavedFile } from '@/types/storage'
  * Native GallerySave plugin interface (implemented in Java:
  * `android/app/src/main/java/com/paddy/paddyprice/GallerySavePlugin.java`).
  *
- * Writes the given PNG bytes (base64) into MediaStore under Pictures/Paddy.
+ * `save`     — writes the given PNG bytes (base64) into MediaStore under
+ *              Pictures/Paddy (used by PNG gallery export).
+ * `savePdf`  — writes the given PDF bytes (base64) into MediaStore.Downloads
+ *              under Download/Paddy — the scoped-storage-compatible save
+ *              mechanism shared with the Android PDF save layer.
  */
 export interface GallerySavePluginInterface {
   save(options: { fileName: string; dataBase64: string }): Promise<SavedFile>
+  savePdf(options: { relativePath: string; dataBase64: string }): Promise<SavedFile>
 }
 
 const GallerySave = registerPlugin<GallerySavePluginInterface>('GallerySave', {
@@ -33,9 +38,24 @@ const GallerySave = registerPlugin<GallerySavePluginInterface>('GallerySave', {
     async save(): Promise<SavedFile> {
       // No-op on web; the browser-download branch handles web PNG export.
       return { path: '' }
-    }
+    },
+    async savePdf(): Promise<SavedFile> {
+      // No-op on web; the browser-download branch handles web PDF export.
+      return { path: '' }
+    },
   },
 })
+
+/**
+ * Persist a PDF on Android through the existing native MediaStore save
+ * plugin (same mechanism as the PNG gallery save — no storage permission
+ * required under scoped storage). `relativePath` is the sanitized document
+ * relative path; the last segment becomes the file name and preceding
+ * segments become sub-folders under Download/Paddy.
+ */
+export async function savePdfNative(relativePath: string, dataBase64: string): Promise<SavedFile> {
+  return GallerySave.savePdf({ relativePath, dataBase64 })
+}
 
 export interface GalleryPort {
   savePng(fileName: string, pngBytes: Uint8Array): Promise<SavedFile>

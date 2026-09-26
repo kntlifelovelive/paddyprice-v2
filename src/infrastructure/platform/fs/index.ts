@@ -16,6 +16,7 @@
 
 import type { SavedFile, StoragePort } from '@/types/storage'
 import { Capacitor } from '@capacitor/core'
+import { savePdfNative } from '@/infrastructure/platform/gallery'
 
 /**
  * Sanitize a path segment so it can be safely used as a filename.
@@ -101,10 +102,16 @@ function pdfBytesToBase64(data: Uint8Array): string {
 }
 
 /**
- * Write PDF bytes on Android via `@capacitor/filesystem` into the app's
- * Documents directory (durable, user-visible), then open the native
- * Share/Open-With sheet pointing at a `content://` URI of the same bytes.
- * Returns the `file://` URI of the persisted Documents copy.
+ * Write PDF bytes on Android via the existing native MediaStore save plugin
+ * (the same scoped-storage mechanism the PNG gallery save uses), then open
+ * the native Share/Open-With sheet pointing at a `content://` URI of the
+ * same bytes. Returns the `content://` URI of the persisted Download/Paddy
+ * copy.
+ *
+ * Note: the previous implementation wrote the durable copy via Capacitor
+ * Filesystem into the PUBLIC Documents directory — a direct file write that
+ * Android 10+ scoped storage denies with EACCES. MediaStore insertion needs
+ * no storage permission and is the Android-compatible save mechanism.
  */
 export async function saveAndShareAndroidPdf(
   relativePath: string,
@@ -112,27 +119,14 @@ export async function saveAndShareAndroidPdf(
 ): Promise<SavedFile> {
   const filename = relativePath.split('/').map(sanitizeSegment).join('/')
   const cleanPath = filename.replace(/^\/+/, '')
-
-  // 1) Durable copy → Documents/<relative path> (reference behavior).
-  const { Filesystem, Directory } = await import('@capacitor/filesystem')
-  const dir = cleanPath.substring(0, cleanPath.lastIndexOf('/'))
-  if (dir) {
-    try {
-      await Filesystem.mkdir({ path: dir, directory: Directory.Documents, recursive: true })
-    } catch {
-      // Directory already exists.
-    }
-  }
   const base64 = data instanceof Blob ? await blobToBase64(data) : pdfBytesToBase64(data)
-  const docWrite = await Filesystem.writeFile({
-    path: cleanPath,
-    directory: Directory.Documents,
-    data: base64,
-    recursive: true,
-  })
+
+  // 1) Durable copy → Download/Paddy/<relative path> (durable, user-visible).
+  const saved = await savePdfNative(cleanPath, base64)
 
   // 2) Shareable copy → Cache, whose `content://` URI the Share plugin can
   //    hand to other apps (file:// URIs are blocked on modern Android).
+  const { Filesystem, Directory } = await import('@capacitor/filesystem')
   const sharePath = `paddy-pdfs/${cleanPath.split('/').pop()}`
   try {
     await Filesystem.mkdir({ path: 'paddy-pdfs', directory: Directory.Cache, recursive: true })
@@ -159,16 +153,16 @@ export async function saveAndShareAndroidPdf(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     // Dismissing the native share sheet is NOT a failure — the durable
-    // Documents copy above is already saved (Capacitor Share v8 rejects with
-    // exactly "Share canceled" on Activity.RESULT_CANCELED). Only genuine
-    // share failures are surfaced to the caller.
+    // Download/Paddy copy above is already saved (Capacitor Share v8 rejects
+    // with exactly "Share canceled" on Activity.RESULT_CANCELED). Only
+    // genuine share failures are surfaced to the caller.
     if (/cancel/i.test(message)) {
-      return { path: docWrite.uri }
+      return { path: saved.path }
     }
-    throw new Error(`PDF saved to Documents, but opening it failed: ${message}`)
+    throw new Error(`PDF saved to Downloads, but opening it failed: ${message}`)
   }
 
-  return { path: docWrite.uri }
+  return { path: saved.path }
 }
 
 /**

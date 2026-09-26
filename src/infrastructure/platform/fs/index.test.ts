@@ -4,7 +4,7 @@
  * Web/desktop parity: `createPdfStorage()` must keep returning the existing
  * browser-download adapter whenever Capacitor reports a non-native platform
  * (which is the case in jsdom/web). Only the native Android container flips
- * to the Capacitor Filesystem+Share adapter — that branch is exercised on a
+ * to the native MediaStore+Share adapter — that branch is exercised on a
  * real device, not in jsdom.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -22,7 +22,7 @@ vi.mock('@capacitor/filesystem', () => ({
   Filesystem: {
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn(async () => ({
-      uri: 'file:///Documents/voucher/PSO-202609-0001.pdf',
+      uri: 'file:///cache/paddy-pdfs/PSO-202609-0001.pdf',
     })),
     getUri: vi.fn(async () => ({
       uri: 'content://paddy-pdfs/PSO-202609-0001.pdf',
@@ -32,6 +32,13 @@ vi.mock('@capacitor/filesystem', () => ({
 
 const shareMock = vi.hoisted(() => ({ share: vi.fn() }))
 vi.mock('@capacitor/share', () => ({ Share: shareMock }))
+
+const pdfSaveMock = vi.hoisted(() => ({
+  savePdfNative: vi.fn(async () => ({ path: 'content://media/external/downloads/42' })),
+}))
+vi.mock('@/infrastructure/platform/gallery', () => ({
+  savePdfNative: pdfSaveMock.savePdfNative,
+}))
 
 describe('platform PDF storage selection', () => {
   it('exposes a browser (web) and a Capacitor (Android) adapter', () => {
@@ -59,15 +66,31 @@ describe('platform PDF storage selection', () => {
 describe('saveAndShareAndroidPdf (Android adapter)', () => {
   beforeEach(() => {
     shareMock.share.mockReset()
+    pdfSaveMock.savePdfNative.mockClear()
+    pdfSaveMock.savePdfNative.mockImplementation(async () => ({
+      path: 'content://media/external/downloads/42',
+    }))
   })
 
-  it('treats share-sheet dismissal ("Share canceled") as success — the PDF is already saved to Documents', async () => {
+  it('persists the durable copy through the native MediaStore save (no direct Documents write)', async () => {
+    const saved = await saveAndShareAndroidPdf(
+      'voucher/PSO-202609-0001.pdf',
+      new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+    )
+    expect(pdfSaveMock.savePdfNative).toHaveBeenCalledWith(
+      'voucher/PSO-202609-0001.pdf',
+      expect.any(String),
+    )
+    expect(saved.path).toBe('content://media/external/downloads/42')
+  })
+
+  it('treats share-sheet dismissal ("Share canceled") as success — the PDF is already saved to Download/Paddy', async () => {
     shareMock.share.mockRejectedValueOnce(new Error('Share canceled'))
     const saved = await saveAndShareAndroidPdf(
       'voucher/PSO-202609-0001.pdf',
       new Uint8Array([0x25, 0x50, 0x44, 0x46]),
     )
-    expect(saved.path).toBe('file:///Documents/voucher/PSO-202609-0001.pdf')
+    expect(saved.path).toBe('content://media/external/downloads/42')
   })
 
   it('still surfaces genuine share failures with the saved-but-not-opened message', async () => {
@@ -75,7 +98,7 @@ describe('saveAndShareAndroidPdf (Android adapter)', () => {
     await expect(
       saveAndShareAndroidPdf('voucher/PSO-202609-0001.pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46])),
     ).rejects.toThrow(
-      'PDF saved to Documents, but opening it failed: No activity handle for share',
+      'PDF saved to Downloads, but opening it failed: No activity handle for share',
     )
   })
 })
